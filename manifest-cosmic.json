@@ -1,0 +1,25 @@
+{
+  "name": "Flyball \u2014 Cosmic Worlds",
+  "short_name": "Flyball",
+  "description": "A neon cosmic arcade dodger featuring distinct planetary worlds, collectible crystal gems, spinning hazards, barriers, and rocket boosts.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07051a",
+  "theme_color": "#6f45ff",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

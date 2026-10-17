@@ -1,0 +1,3438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>FLYBALL — Arcade Game</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#05060a">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flyball">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #05060a;
+    overflow: hidden;
+    touch-action: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    user-select: none;
+  }
+  #app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: radial-gradient(1200px 800px at 50% -10%, #131627 0%, #05060a 60%, #030308 100%);
+  }
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: max(14px, env(safe-area-inset-top)) 18px 10px 18px;
+    z-index: 10;
+    pointer-events: none;
+    gap: 8px;
+  }
+  .hud-left { display: flex; gap: 8px; }
+  .hud-pill {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 999px;
+    padding: 8px 16px;
+    color: #eef0ff;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.3px;
+    display: flex; align-items: center; gap: 6px;
+    white-space: nowrap;
+  }
+  .hud-pill .label {
+    color: #8b90ad; font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .gem-icon {
+    display: inline-block; flex: 0 0 auto; width: 14px; height: 18px;
+    background: linear-gradient(145deg, #ffffff 0%, #f0baff 24%, #a76bff 48%, #42e7ff 76%, #dffcff 100%);
+    clip-path: polygon(50% 0%, 100% 36%, 50% 100%, 0% 36%);
+    filter: drop-shadow(0 0 3px rgba(147,91,255,0.95)) drop-shadow(0 0 5px rgba(49,224,255,0.55));
+    position: relative;
+  }
+  .coin-pill { background: linear-gradient(110deg, rgba(119,54,255,0.18), rgba(34,190,255,0.12)); border: 1px solid rgba(146,107,255,0.42); color: #e8dcff; }
+  #canvasWrap { position: relative; flex: 1; width: 100%; overflow: hidden; }
+  #game { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px;
+    background: rgba(5,6,10,0.8);
+    backdrop-filter: blur(6px);
+    z-index: 20;
+    padding: 22px;
+    text-align: center;
+    animation: fadeIn 0.25s ease;
+    overflow-y: auto;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .overlay.hidden { display: none; }
+  .hidden { display: none !important; }
+  .title { font-size: 40px; font-weight: 800; color: #fff; letter-spacing: -1px; text-shadow: 0 0 30px rgba(124,131,253,0.5); }
+  .subtitle { color: #9ba0c4; font-size: 14px; font-weight: 500; max-width: 300px; line-height: 1.5; }
+  .preview-row { display: flex; align-items: center; gap: 14px; }
+  .preview-canvas-wrap {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 6px;
+  }
+  .score-big { font-size: 60px; font-weight: 800; color: #7c83fd; line-height: 1; text-shadow: 0 0 40px rgba(124,131,253,0.6); }
+  .score-row { display: flex; gap: 26px; align-items: center; justify-content: center; margin-top: 2px; flex-wrap: wrap; }
+  .score-box { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .score-box .num { font-size: 26px; font-weight: 800; color: #fff; }
+  .score-box .cap { font-size: 11px; color: #8b90ad; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+  .new-badge {
+    display: inline-block; background: linear-gradient(135deg, #ffd76a, #ff9f4a); color: #2a1900;
+    font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; letter-spacing: 0.5px;
+  }
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  button.primary {
+    appearance: none; border: none; outline: none;
+    background: linear-gradient(135deg, #7c83fd, #5865f2); color: #fff;
+    font-size: 17px; font-weight: 700; padding: 15px 36px; border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(88, 101, 242, 0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+    cursor: pointer; letter-spacing: 0.3px; transition: transform 0.08s ease;
+  }
+  button.secondary {
+    appearance: none; border: 1px solid rgba(255,255,255,0.14); outline: none;
+    background: rgba(255,255,255,0.06); color: #eef0ff;
+    font-size: 15px; font-weight: 700; padding: 14px 26px; border-radius: 18px;
+    cursor: pointer; letter-spacing: 0.3px; transition: transform 0.08s ease;
+  }
+  button.primary:active, button.secondary:active { transform: scale(0.95); }
+  .hint { color: #565b7d; font-size: 12px; }
+  #flash { position: absolute; inset: 0; background: #ff3b5c; opacity: 0; pointer-events: none; z-index: 15; }
+
+  .shop-tabs { display: flex; gap: 8px; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; }
+  .shop-tab { padding: 8px 20px; border-radius: 10px; font-weight: 700; font-size: 13px; color: #9ba0c4; cursor: pointer; letter-spacing: 0.4px; }
+  .shop-tab.active { background: #5865f2; color: #fff; }
+  .boost-list { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 340px; margin-top: 4px; }
+  .boost-row {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
+    padding: 12px 14px; text-align: left;
+  }
+  .boost-row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .boost-name { font-weight: 700; font-size: 14px; color: #eef0ff; }
+  .boost-level { font-size: 11px; font-weight: 700; color: #9ba0c4; }
+  .boost-desc { font-size: 11.5px; color: #8b90ad; margin-bottom: 8px; line-height: 1.4; }
+  .boost-pips { display: flex; gap: 4px; margin-bottom: 8px; }
+  .boost-pip { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); }
+  .boost-pip.filled { background: linear-gradient(90deg, #ffd76a, #ff9f4a); }
+  .boost-btn {
+    width: 100%; appearance: none; border: none; border-radius: 12px; padding: 9px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+    background: linear-gradient(135deg, #7c83fd, #5865f2); color: #fff;
+  }
+  .boost-btn:disabled { background: rgba(255,255,255,0.08); color: #6a6f8f; cursor: default; }
+
+  .mission-list { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px; margin-top: 4px; max-height: 56vh; overflow-y: auto; }
+  .mission-card {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
+    padding: 12px 14px; text-align: left;
+  }
+  .mission-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+  .mission-name { font-weight: 700; font-size: 14px; color: #eef0ff; }
+  .mission-tier {
+    font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .mission-desc { font-size: 11.5px; color: #9ba0c4; margin-bottom: 8px; }
+  .mission-bottom { display: flex; align-items: center; gap: 10px; }
+  .mission-bar-wrap { flex: 1; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
+  .mission-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #7c83fd, #5865f2); }
+  .mission-progress-text { font-size: 10.5px; color: #8b90ad; white-space: nowrap; min-width: 56px; text-align: right; }
+  .mission-claim-btn {
+    appearance: none; border: none; border-radius: 10px; padding: 7px 14px; font-weight: 800; font-size: 12px;
+    cursor: pointer; background: linear-gradient(135deg, #ffd76a, #ff9f4a); color: #2a1900; white-space: nowrap;
+  }
+  .mission-claim-btn.claimed { background: rgba(110,242,160,0.15); color: #6ef29a; cursor: default; }
+  .btn-notify-dot {
+    position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border-radius: 50%;
+    background: #ff5c5c; box-shadow: 0 0 6px rgba(255,92,92,0.8); border: 2px solid #05060a;
+  }
+  .btn-with-badge { position: relative; }
+  /* FLYBALL 2.0 — neon collectible skin studio */
+  #shopScreen {
+    align-items: stretch; justify-content: flex-start; gap: 16px; text-align: left;
+    padding: max(18px, env(safe-area-inset-top)) clamp(14px, 3vw, 38px) 20px;
+    background: radial-gradient(ellipse at 78% 35%, rgba(74,39,191,.22), transparent 38%),
+      radial-gradient(ellipse at 12% 80%, rgba(0,183,255,.13), transparent 34%), rgba(3,4,14,.96);
+    backdrop-filter: blur(18px);
+  }
+  .shop-header { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; }
+  .shop-brand { font-size:clamp(28px,4vw,48px); line-height:1; font-weight:1000; font-style:italic; letter-spacing:-1.8px;
+    color:#fff; text-shadow:0 0 18px rgba(115,83,255,.65); }
+  .shop-brand span { background:linear-gradient(100deg,#f4f4ff 5%,#c17bff 48%,#22d9ff 90%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .shop-header-right { display:flex; align-items:center; gap:10px; }
+  .shop-tabs { display:flex; gap:8px; background:rgba(255,255,255,.035); border-bottom:1px solid rgba(127,105,255,.25); border-radius:0; padding:0 2px; width:100%; }
+  .shop-tab { padding:11px 18px; border-radius:0; font-weight:900; font-size:12px; color:#8288b4; cursor:pointer; letter-spacing:1px; text-transform:uppercase; border-bottom:3px solid transparent; }
+  .shop-tab.active { background:transparent; color:#fff; border-bottom-color:#d34dff; text-shadow:0 0 14px #9e38ff; }
+  .skin-studio { display:grid; grid-template-columns:132px minmax(0,1.25fr) minmax(230px,.85fr); gap:16px; width:100%; flex:1; min-height:0; }
+  .skin-categories { display:flex; flex-direction:column; gap:8px; }
+  .skin-category { display:flex; align-items:center; gap:10px; min-height:58px; padding:10px 12px; border-radius:14px; border:1px solid rgba(89,101,255,.28); background:linear-gradient(135deg,rgba(14,17,45,.9),rgba(9,10,25,.7)); color:#aeb5df; font-size:11px; font-weight:900; letter-spacing:.4px; cursor:pointer; text-transform:uppercase; }
+  .skin-category .cat-icon { font-size:19px; width:22px; text-align:center; }
+  .skin-category.active { color:#fff; border-color:#c64bff; background:linear-gradient(120deg,rgba(124,38,255,.55),rgba(34,100,255,.2)); box-shadow:0 0 20px rgba(156,54,255,.25),inset 0 0 0 1px rgba(255,255,255,.08); }
+  .skin-category[data-category="Legendary"] { color:#ffd76a; }
+  .skin-category[data-category="Epic"] { color:#d879ff; }
+  .skin-category[data-category="Rare"] { color:#39d8ff; }
+  .skin-catalog { min-width:0; overflow:auto; padding:2px 4px 8px 2px; }
+  .skin-catalog-heading { display:flex; justify-content:space-between; align-items:center; margin:0 0 10px; color:#aeb5df; font-size:10px; font-weight:900; letter-spacing:1.8px; text-transform:uppercase; }
+  .shop-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; width:100%; margin-top:4px; max-width:none; }
+  .shop-item { position:relative; overflow:hidden; min-width:0; min-height:112px; background:linear-gradient(145deg,rgba(18,20,51,.92),rgba(5,7,20,.92)); border:1px solid rgba(94,111,255,.35); border-radius:15px; padding:9px 5px 10px; display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; transition:transform .14s ease,border-color .2s ease,box-shadow .2s ease; }
+  .shop-item::before { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(130deg,rgba(255,255,255,.08),transparent 38%); }
+  .shop-item:active { transform:scale(.96); }
+  .shop-item.selected { border-color:#b45cff; box-shadow:0 0 0 1px rgba(180,92,255,.55) inset,0 0 20px rgba(139,71,255,.18); }
+  .shop-item.legendary { border-color:rgba(255,215,106,.55); }
+  .shop-item.legendary.selected { border-color:#ffd76a; box-shadow:0 0 0 1px rgba(255,215,106,.65) inset,0 0 22px rgba(255,196,69,.2); }
+  .shop-item canvas { width:clamp(44px,5.5vw,66px); height:clamp(44px,5.5vw,66px); filter:drop-shadow(0 0 9px rgba(101,119,255,.38)); }
+  .shop-item .name { font-size:11px; font-weight:900; color:#f4f3ff; letter-spacing:.6px; text-transform:uppercase; }
+  .shop-item .cost { font-size:10px; font-weight:900; color:#ffd76a; display:flex; align-items:center; gap:5px; }
+  .shop-item .status { font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.6px; color:#6ef29a; }
+  .rarity-tag { font-size:8px; font-weight:1000; letter-spacing:.7px; border-radius:99px; padding:2px 7px; background:rgba(124,131,253,.14); color:#8ee9ff; border:1px solid currentColor; }
+  .rarity-tag.legendary { color:#ffd76a; background:rgba(255,215,106,.09); }
+  .rarity-tag.epic { color:#df7aff; background:rgba(223,122,255,.08); }
+  .shop-item.locked canvas { filter:brightness(.7) saturate(.8); }
+  .skin-feature { position:relative; display:flex; flex-direction:column; align-items:stretch; justify-content:space-between; min-width:0; overflow:hidden; border:1px solid rgba(118,88,255,.42); border-radius:22px; padding:18px; background:radial-gradient(ellipse at 50% 48%,rgba(83,43,206,.35),transparent 58%),linear-gradient(155deg,rgba(16,18,48,.95),rgba(5,7,19,.98)); box-shadow:inset 0 0 40px rgba(79,61,199,.08); }
+  .skin-feature::after { content:""; position:absolute; width:240px; height:240px; border:1px solid rgba(89,161,255,.18); border-radius:50%; left:50%; top:45%; transform:translate(-50%,-50%); box-shadow:0 0 0 18px rgba(120,67,255,.035),0 0 0 38px rgba(120,67,255,.025); pointer-events:none; }
+  .feature-top,.feature-bottom,.feature-art { position:relative; z-index:1; }
+  .feature-rarity { align-self:flex-start; border-radius:99px; padding:6px 11px; color:#ffd76a; border:1px solid rgba(255,215,106,.65); background:rgba(255,215,106,.1); font-size:10px; font-weight:1000; letter-spacing:1px; text-transform:uppercase; }
+  .feature-name { margin-top:12px; font-size:clamp(22px,2.7vw,34px); font-weight:1000; font-style:italic; letter-spacing:-.8px; color:#fff; text-transform:uppercase; }
+  .feature-desc { margin-top:6px; font-size:12px; line-height:1.55; color:#9ea8d7; }
+  .feature-art { display:flex; align-items:center; justify-content:center; min-height:150px; flex:1; }
+  #featuredSkinCanvas { width:min(100%,220px); aspect-ratio:1; filter:drop-shadow(0 0 22px rgba(124,81,255,.65)); }
+  .feature-equip { width:100%; padding:13px 18px; border:0; border-radius:14px; color:#fff; font-size:12px; font-weight:1000; letter-spacing:1px; text-transform:uppercase; background:linear-gradient(100deg,#8c24ff,#4a4cff 58%,#00bfff); box-shadow:0 6px 25px rgba(108,54,255,.35); cursor:pointer; }
+  .feature-meta { display:flex; justify-content:space-between; gap:8px; margin-top:13px; padding-top:12px; border-top:1px solid rgba(118,125,255,.2); color:#8f9ac9; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.5px; }
+  @media (max-width:800px) { .skin-studio { grid-template-columns:1fr; gap:10px; flex:none; } .skin-categories { flex-direction:row; overflow-x:auto; padding-bottom:2px; } .skin-category { flex:0 0 auto; min-height:40px; padding:8px 11px; } .skin-category .cat-icon { font-size:15px; } .skin-feature { display:grid; grid-template-columns:76px 1fr; gap:12px; padding:12px; min-height:110px; } .feature-top { grid-column:2; grid-row:1; } .feature-art { grid-column:1; grid-row:1 / span 2; min-height:70px; } #featuredSkinCanvas { width:76px; } .feature-bottom { grid-column:2; grid-row:2; } .feature-rarity { padding:4px 8px; font-size:8px; } .feature-name { font-size:19px; margin-top:5px; } .feature-desc { font-size:10px; margin-top:3px; } .feature-equip { padding:10px; } .feature-meta { display:none; } #shopScreen { gap:12px; } .shop-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  @media (max-width:420px) { .shop-brand { font-size:27px; } .shop-item { min-height:98px; } .shop-item canvas { width:48px; height:48px; } .shop-item .name { font-size:9px; } .shop-grid { gap:7px; } .skin-category { font-size:9px; } }
+
+  /* FLYBALL COSMIC REDESIGN — shared by every screen */
+  :root { color-scheme: dark; --neon-violet:#a855f7; --neon-blue:#25d9ff; --neon-pink:#ff4fe1; --panel:rgba(7,10,31,.88); }
+  #app { background:radial-gradient(ellipse at 50% 0%,#17205a 0%,#07091c 42%,#02030b 100%); }
+  #hud { padding-left:clamp(10px,2.4vw,28px); padding-right:clamp(10px,2.4vw,28px); }
+  .hud-pill { background:linear-gradient(145deg,rgba(14,21,55,.82),rgba(5,8,24,.82)); border:1px solid rgba(83,150,255,.32); box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 18px rgba(47,91,255,.08); }
+  .hud-pill .label { color:#8ea7e8; }
+  .overlay { background:radial-gradient(ellipse at 50% 10%,rgba(40,32,105,.78),rgba(3,5,19,.94) 62%),rgba(3,5,19,.94); backdrop-filter:blur(16px); }
+  .overlay::before { content:""; position:absolute; inset:8px; border:1px solid rgba(81,139,255,.17); border-radius:22px; pointer-events:none; }
+  .title { font-size:clamp(34px,5vw,58px); font-style:italic; letter-spacing:-1.5px; background:linear-gradient(100deg,#fff 8%,#a6b8ff 35%,#d879ff 63%,#24e4ff 92%); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 0 16px rgba(98,75,255,.35)); }
+  .subtitle { color:#aab7e8; }
+  .preview-canvas-wrap { background:linear-gradient(145deg,rgba(29,36,88,.75),rgba(5,9,27,.8)); border-color:rgba(70,160,255,.35); box-shadow:inset 0 0 22px rgba(64,91,255,.1),0 0 22px rgba(72,91,255,.08); }
+  button.primary { background:linear-gradient(100deg,#7b22ff,#4a4fff 52%,#00c8ff); border:1px solid rgba(255,255,255,.22); box-shadow:0 0 28px rgba(110,52,255,.35),inset 0 1px rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:1.2px; }
+  button.secondary { background:linear-gradient(145deg,rgba(18,26,68,.86),rgba(7,10,31,.9)); border:1px solid rgba(70,145,255,.35); box-shadow:inset 0 1px rgba(255,255,255,.06); }
+  button.secondary:hover, button.primary:hover { filter:brightness(1.15); }
+  .boost-row,.mission-card { background:linear-gradient(145deg,rgba(17,24,63,.88),rgba(5,8,25,.92)); border-color:rgba(78,129,255,.28); box-shadow:inset 0 1px rgba(255,255,255,.05),0 8px 28px rgba(0,0,0,.12); }
+  .boost-name,.mission-name { color:#f5f6ff; }
+  .boost-btn { background:linear-gradient(100deg,#7928ff,#276bff,#04c8ed); text-transform:uppercase; letter-spacing:.5px; }
+  .mission-bar-fill { background:linear-gradient(90deg,#9c36ff,#3f65ff,#20d9ff); box-shadow:0 0 12px rgba(67,130,255,.5); }
+  #startScreen .btn-row { max-width:640px; }
+  #startScreen .subtitle:not([style]) { max-width:460px; }
+  #gameOverScreen .score-big { color:#ff5edb; text-shadow:0 0 38px rgba(255,50,180,.55); }
+  #levelCompleteScreen .score-big { filter:drop-shadow(0 0 18px rgba(30,255,202,.3)); }
+  #levelSelectScreen { align-items:stretch; }
+  #levelSelectScreen > .title { text-align:left; }
+  #levelSelectGrid { width:100%; max-width:960px; align-self:center; gap:10px; }
+  #levelSelectGrid .shop-item { min-height:124px; }
+  #missionsScreen { align-items:stretch; }
+  #missionsScreen > .title,#missionsScreen > .subtitle { align-self:center; }
+  #missionsScreen .mission-list { max-width:720px; align-self:center; width:100%; }
+  .shop-item { background:linear-gradient(145deg,rgba(14,20,55,.96),rgba(3,6,20,.98)); border-color:rgba(73,130,255,.34); box-shadow:inset 0 1px rgba(255,255,255,.06),0 7px 22px rgba(0,0,0,.18); }
+  .shop-item.selected { border-color:#dc5bff; box-shadow:0 0 22px rgba(168,85,247,.35),inset 0 0 22px rgba(100,75,255,.12); }
+  .shop-item.legendary { border-color:rgba(255,199,65,.7); box-shadow:inset 0 0 20px rgba(255,175,35,.07),0 0 13px rgba(255,182,48,.1); }
+  .shop-item .name { color:#f4f6ff; }
+  .shop-item canvas { filter:drop-shadow(0 0 10px rgba(73,143,255,.22)); }
+  .mission-tier { border:1px solid rgba(159,119,255,.35); }
+  @media(max-width:600px) {
+    .overlay { padding:18px 14px; gap:12px; }
+    #startScreen .title { font-size:42px; }
+    #startScreen .btn-row button { padding:12px 15px; font-size:13px; }
+    #levelSelectGrid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+    .score-big { font-size:50px; }
+    .mission-list { max-height:48vh; }
+  }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="hud-left">
+      <div class="hud-pill"><span class="label">Score</span><span id="scoreLive">0/0</span></div>
+      <div class="hud-pill"><span class="label">Lvl</span><span id="levelLive">1</span></div>
+      <div class="hud-pill coin-pill"><span class="gem-icon"></span><span id="coinLive">0</span></div>
+    </div>
+    <div class="hud-pill"><span class="label">Best</span><span id="bestLive">0</span></div>
+  </div>
+
+  <div id="canvasWrap">
+    <canvas id="game"></canvas>
+    <div id="flash"></div>
+
+    <div id="startScreen" class="overlay">
+      <div class="preview-row">
+        <div class="preview-canvas-wrap"><canvas id="startCharPreview" width="64" height="64"></canvas></div>
+        <div class="preview-canvas-wrap"><canvas id="startLevelPreview" width="64" height="64"></canvas></div>
+      </div>
+      <div class="title">FLYBALL</div>
+      <div id="startLevelName" class="subtitle" style="font-weight:700; color:#dfe1f5;">Level 1 — Aurora Fields</div>
+      <div class="subtitle">Every tap costs Pulse Energy — your jump gets weaker as it runs low. Grab gems to refuel, and rare glowing Overcharge gems give a full refill plus a shield. 50 wildly different worlds to clear.</div>
+      <div class="hud-pill coin-pill" style="pointer-events:auto;"><span class="gem-icon"></span><span id="coinStart">0</span> gems</div>
+      <div class="btn-row">
+        <button class="primary" id="startBtn">Play</button>
+        <button class="secondary" id="levelsBtnStart">Levels</button>
+        <button class="secondary" id="shopBtnStart">Shop</button>
+        <button class="secondary btn-with-badge" id="missionsBtnStart">Missions<span id="missionsBadge" class="btn-notify-dot hidden"></span></button>
+      </div>
+      <div class="hint">Tap anywhere, click, or press Space</div>
+    </div>
+
+    <div id="gameOverScreen" class="overlay hidden">
+      <div class="title" style="font-size:34px;">YOU'VE LOST</div>
+      <div class="score-big" id="finalScore">0</div>
+      <div class="score-row">
+        <div class="score-box"><div class="num" id="finalBest">0</div><div class="cap">Best</div></div>
+        <div class="score-box"><div class="num" id="finalLevel">1</div><div class="cap">Level</div></div>
+        <div class="score-box"><div class="num" id="finalCoins">0</div><div class="cap">Gems earned</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="restartBtn">Restart</button>
+        <button class="secondary" id="shopBtnEnd">Shop</button>
+        <button class="secondary" id="menuBtnEnd">Main Menu</button>
+      </div>
+    </div>
+
+    <div id="levelCompleteScreen" class="overlay hidden">
+      <div class="title" style="font-size:32px; color:#6ef2a0; text-shadow:0 0 30px rgba(110,242,160,0.5);">LEVEL COMPLETE</div>
+      <div class="subtitle" id="completeLevelName" style="font-weight:700; color:#dfe1f5;">Aurora Fields</div>
+      <div class="score-big" id="completeScore" style="color:#6ef2a0; text-shadow:0 0 40px rgba(110,242,160,0.6);">0</div>
+      <div class="score-row">
+        <div class="score-box"><div class="num" id="completeCoins">0</div><div class="cap">Gems earned</div></div>
+      </div>
+      <div id="skinUnlockBanner" class="hidden" style="display:flex; align-items:center; gap:10px; background:rgba(255,215,106,0.12); border:1px solid rgba(255,215,106,0.35); border-radius:16px; padding:10px 16px;">
+        <canvas id="skinUnlockPreview" width="40" height="40"></canvas>
+        <div style="text-align:left;">
+          <div style="font-size:10px; font-weight:800; color:#ffd76a; text-transform:uppercase; letter-spacing:0.5px;">New skin unlocked</div>
+          <div id="skinUnlockName" style="font-size:14px; font-weight:700; color:#fff;">Phoenix</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="nextLevelBtn">Next Level</button>
+        <button class="secondary" id="levelSelectFromComplete">Level Select</button>
+        <button class="secondary" id="menuBtnComplete">Main Menu</button>
+      </div>
+    </div>
+
+    <div id="levelSelectScreen" class="overlay hidden">
+      <div class="title" style="font-size:28px;">Levels</div>
+      <div class="shop-grid" id="levelSelectGrid" style="max-height:56vh; overflow-y:auto; grid-template-columns: repeat(4, 1fr);"></div>
+      <button class="secondary" id="closeLevelSelectBtn">Close</button>
+    </div>
+
+    <div id="shopScreen" class="overlay hidden">
+      <div class="shop-header">
+        <div class="shop-brand">FLY<span>BALL</span> <small style="font-size:10px;letter-spacing:2px;color:#8c92c4;vertical-align:middle;">SKIN LAB</small></div>
+        <div class="shop-header-right">
+          <div class="hud-pill coin-pill" style="pointer-events:auto;"><span class="gem-icon"></span><span id="coinShop">0</span></div>
+          <button class="secondary" id="closeShopBtn" style="padding:10px 14px;border-radius:12px;">✕</button>
+        </div>
+      </div>
+      <div class="shop-tabs">
+        <div class="shop-tab active" id="tabSkins">✦ Skins</div>
+        <div class="shop-tab" id="tabBoosts">↗ Boosts</div>
+      </div>
+      <div class="skin-studio" id="skinStudio">
+        <aside class="skin-categories" aria-label="Skin rarity filters">
+          <button class="skin-category active" data-category="All"><span class="cat-icon">▦</span> All</button>
+          <button class="skin-category" data-category="Legendary"><span class="cat-icon">♛</span> Legendary</button>
+          <button class="skin-category" data-category="Epic"><span class="cat-icon">◇</span> Epic</button>
+          <button class="skin-category" data-category="Rare"><span class="cat-icon">✦</span> Rare</button>
+          <button class="skin-category" data-category="Common"><span class="cat-icon">○</span> Common</button>
+        </aside>
+        <section class="skin-catalog">
+          <div class="skin-catalog-heading"><span>Choose your aura</span><span id="skinCount">COLLECTION</span></div>
+          <div class="shop-grid" id="skinsGrid"></div>
+        </section>
+        <aside class="skin-feature">
+          <div class="feature-top"><div class="feature-rarity" id="featuredRarity">RARE</div><div class="feature-name" id="featuredName">GLIMMER</div><div class="feature-desc" id="featuredDesc">A clean classic. Make every jump count.</div></div>
+          <div class="feature-art"><canvas id="featuredSkinCanvas" width="240" height="240"></canvas></div>
+          <div class="feature-bottom"><button class="feature-equip" id="featuredAction">EQUIPPED ✓</button><div class="feature-meta"><span>✦ Animated aura</span><span>∞ Save your style</span></div></div>
+        </aside>
+      </div>
+      <div class="boost-list hidden" id="boostsList"></div>
+    </div>
+
+    <div id="missionsScreen" class="overlay hidden">
+      <div class="title" style="font-size:28px;">Missions</div>
+      <div class="subtitle" style="max-width:320px;">One-time challenges — claim gems for each one you complete.</div>
+      <div class="mission-list" id="missionsList"></div>
+      <button class="secondary" id="closeMissionsBtn">Close</button>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Sound effects (synthesized — no audio files needed, keeps the game offline-safe) ----------
+  const SoundFX = (function () {
+    let ctx = null;
+    function getCtx() {
+      if (!ctx) {
+        try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ctx = null; }
+      }
+      return ctx;
+    }
+    function unlock() {
+      const c = getCtx();
+      if (c && c.state === 'suspended') { c.resume().catch(function () {}); }
+    }
+    function tone(freqStart, freqEnd, duration, type, volume, delay) {
+      const c = getCtx();
+      if (!c) return;
+      const t0 = c.currentTime + (delay || 0);
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(Math.max(1, freqStart), t0);
+      if (freqEnd !== freqStart) osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), t0 + duration);
+      gain.gain.setValueAtTime(volume || 0.2, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+      osc.connect(gain); gain.connect(c.destination);
+      osc.start(t0); osc.stop(t0 + duration + 0.03);
+    }
+    return {
+      unlock: unlock,
+      jump: function (strength) {
+        const base = 380 + (strength || 1) * 160;
+        tone(base, base * 1.6, 0.09, 'sine', 0.16);
+      },
+      lose: function () {
+        tone(320, 140, 0.35, 'sawtooth', 0.2);
+        tone(200, 60, 0.55, 'sine', 0.16, 0.08);
+      },
+      levelUp: function () {
+        tone(523.25, 523.25, 0.13, 'triangle', 0.2, 0);
+        tone(659.25, 659.25, 0.13, 'triangle', 0.2, 0.11);
+        tone(783.99, 783.99, 0.26, 'triangle', 0.22, 0.22);
+      },
+      rocket: function () {
+        tone(140, 1100, 0.32, 'sawtooth', 0.18);
+        tone(90, 500, 0.4, 'sine', 0.14, 0.02);
+        tone(1400, 2000, 0.12, 'triangle', 0.1, 0.05);
+      }
+    };
+  })();
+
+  // ---------- DOM refs ----------
+  const canvas = document.getElementById('game');
+  let ctx = canvas.getContext('2d');
+  const wrap = document.getElementById('canvasWrap');
+  const scoreLiveEl = document.getElementById('scoreLive');
+  const bestLiveEl = document.getElementById('bestLive');
+  const coinLiveEl = document.getElementById('coinLive');
+  const coinStartEl = document.getElementById('coinStart');
+  const coinShopEl = document.getElementById('coinShop');
+  const startScreen = document.getElementById('startScreen');
+  const gameOverScreen = document.getElementById('gameOverScreen');
+  const levelCompleteScreen = document.getElementById('levelCompleteScreen');
+  const levelSelectScreen = document.getElementById('levelSelectScreen');
+  const shopScreen = document.getElementById('shopScreen');
+  const finalScoreEl = document.getElementById('finalScore');
+  const finalBestEl = document.getElementById('finalBest');
+  const finalCoinsEl = document.getElementById('finalCoins');
+  const startBtn = document.getElementById('startBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const menuBtnEnd = document.getElementById('menuBtnEnd');
+  const flashEl = document.getElementById('flash');
+
+  const shopBtnStart = document.getElementById('shopBtnStart');
+  const shopBtnEnd = document.getElementById('shopBtnEnd');
+  const closeShopBtn = document.getElementById('closeShopBtn');
+  const skinsGrid = document.getElementById('skinsGrid');
+  const skinStudio = document.getElementById('skinStudio');
+  const skinCountEl = document.getElementById('skinCount');
+  const featuredSkinCanvas = document.getElementById('featuredSkinCanvas');
+  const featuredRarityEl = document.getElementById('featuredRarity');
+  const featuredNameEl = document.getElementById('featuredName');
+  const featuredDescEl = document.getElementById('featuredDesc');
+  const featuredActionEl = document.getElementById('featuredAction');
+  let activeSkinCategory = 'All';
+  const tabSkins = document.getElementById('tabSkins');
+  const tabBoosts = document.getElementById('tabBoosts');
+  const boostsList = document.getElementById('boostsList');
+  const startCharPreview = document.getElementById('startCharPreview');
+  const startLevelPreview = document.getElementById('startLevelPreview');
+  const startLevelNameEl = document.getElementById('startLevelName');
+  const levelLiveEl = document.getElementById('levelLive');
+  const finalLevelEl = document.getElementById('finalLevel');
+
+  const levelsBtnStart = document.getElementById('levelsBtnStart');
+  const levelSelectGrid = document.getElementById('levelSelectGrid');
+  const closeLevelSelectBtn = document.getElementById('closeLevelSelectBtn');
+  const levelSelectFromComplete = document.getElementById('levelSelectFromComplete');
+  const nextLevelBtn = document.getElementById('nextLevelBtn');
+  const menuBtnComplete = document.getElementById('menuBtnComplete');
+  const completeLevelNameEl = document.getElementById('completeLevelName');
+  const completeScoreEl = document.getElementById('completeScore');
+  const completeCoinsEl = document.getElementById('completeCoins');
+
+  const missionsBtnStart = document.getElementById('missionsBtnStart');
+  const missionsBadge = document.getElementById('missionsBadge');
+  const missionsScreen = document.getElementById('missionsScreen');
+  const missionsList = document.getElementById('missionsList');
+  const closeMissionsBtn = document.getElementById('closeMissionsBtn');
+  const skinUnlockBanner = document.getElementById('skinUnlockBanner');
+  const skinUnlockPreview = document.getElementById('skinUnlockPreview');
+  const skinUnlockNameEl = document.getElementById('skinUnlockName');
+
+  // ---------- Persistence ----------
+  const KEYS = {
+    unlockedLevel: 'novaRunUnlockedLevel', coins: 'novaRunCoins', skins: 'novaRunUnlockedSkins', selSkin: 'novaRunSelectedSkin',
+    boostJump: 'flyballBoostJump', boostCapacity: 'flyballBoostCapacity', boostRegen: 'flyballBoostRegen',
+    lifetimeGems: 'flyballLifetimeGems', lifetimeRockets: 'flyballLifetimeRockets', lifetimeCompletions: 'flyballLifetimeCompletions',
+    claimedMissions: 'flyballClaimedMissions'
+  };
+  function loadJSON(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v || fallback; } catch (e) { return fallback; } }
+  function loadNum(key, fallback) { try { const v = parseInt(localStorage.getItem(key), 10); return isNaN(v) ? fallback : v; } catch (e) { return fallback; } }
+  function saveVal(key, val) { try { localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val)); } catch (e) {} }
+
+  const TOTAL_LEVELS = 50;
+  let unlockedLevel = Math.min(TOTAL_LEVELS, Math.max(1, loadNum(KEYS.unlockedLevel, 1)));
+  let coins = loadNum(KEYS.coins, 0);
+  let unlockedSkins = loadJSON(KEYS.skins, ['blob']);
+  let selectedSkin = localStorage.getItem(KEYS.selSkin) || 'blob';
+
+  // Lifetime stats missions are measured against — these only ever go up, independent of
+  // the spendable gem balance (which drops when you buy things).
+  let lifetimeGems = loadNum(KEYS.lifetimeGems, 0);
+  let lifetimeRockets = loadNum(KEYS.lifetimeRockets, 0);
+  let lifetimeCompletions = loadNum(KEYS.lifetimeCompletions, 0);
+  let claimedMissions = loadJSON(KEYS.claimedMissions, []);
+
+  bestLiveEl.textContent = unlockedLevel;
+  coinLiveEl.textContent = coins;
+  coinStartEl.textContent = coins;
+
+  // ---------- Missions: one-time challenges that pay out gems on top of normal play ----------
+  // Reward scales with how hard the mission is to reach.
+  const MISSIONS = [
+    { id: 'm_level2', tier: 'Easy', name: 'First Flight', desc: 'Reach Level 2', reward: 20, target: 2, stat: 'level' },
+    { id: 'm_gems20', tier: 'Easy', name: 'Warming Up', desc: 'Collect 20 gems total', reward: 20, target: 20, stat: 'gems' },
+    { id: 'm_complete5', tier: 'Easy', name: 'Quick Study', desc: 'Complete 5 levels', reward: 30, target: 5, stat: 'completions' },
+    { id: 'm_level10', tier: 'Medium', name: 'Halfway There', desc: 'Reach Level 10', reward: 60, target: 10, stat: 'level' },
+    { id: 'm_gems150', tier: 'Medium', name: 'Treasure Hunter', desc: 'Collect 150 gems total', reward: 70, target: 150, stat: 'gems' },
+    { id: 'm_rockets5', tier: 'Medium', name: 'Blast Off', desc: 'Use the Rocket boost 5 times', reward: 60, target: 5, stat: 'rockets' },
+    { id: 'm_level25', tier: 'Hard', name: 'Deep Runner', desc: 'Reach Level 25', reward: 130, target: 25, stat: 'level' },
+    { id: 'm_gems500', tier: 'Hard', name: 'Gem Hoarder', desc: 'Collect 500 gems total', reward: 150, target: 500, stat: 'gems' },
+    { id: 'm_rockets20', tier: 'Hard', name: 'Rocket Ace', desc: 'Use the Rocket boost 20 times', reward: 120, target: 20, stat: 'rockets' },
+    { id: 'm_complete25', tier: 'Hard', name: 'Veteran', desc: 'Complete 25 levels', reward: 140, target: 25, stat: 'completions' },
+    { id: 'm_level50', tier: 'Legendary', name: 'Champion', desc: 'Reach Level 50', reward: 300, target: 50, stat: 'level' },
+    { id: 'm_gems2000', tier: 'Legendary', name: 'Gem Tycoon', desc: 'Collect 2000 gems total', reward: 280, target: 2000, stat: 'gems' }
+  ];
+  const TIER_COLOR = { Easy: '#6ef29a', Medium: '#7c83fd', Hard: '#ff9f4a', Legendary: '#ffd76a' };
+  function missionProgressValue(m) {
+    if (m.stat === 'level') return unlockedLevel;
+    if (m.stat === 'gems') return lifetimeGems;
+    if (m.stat === 'rockets') return lifetimeRockets;
+    if (m.stat === 'completions') return lifetimeCompletions;
+    return 0;
+  }
+
+  // ---------- Boosts: permanent upgrades bought with gems ----------
+  const BOOSTS = {
+    jump: { key: 'boostJump', name: 'Jump Power', desc: 'Stronger pulse-jumps at every energy level.', costs: [80, 160, 280, 450, 700], perLevel: 0.08 },
+    capacity: { key: 'boostCapacity', name: 'Energy Capacity', desc: 'Carry more Pulse Energy — more taps in reserve.', costs: [150, 300, 550], perLevel: 1 },
+    regen: { key: 'boostRegen', name: 'Energy Regen', desc: 'Pulse Energy recharges faster over time.', costs: [100, 200, 350, 550], perLevel: 0.09 }
+  };
+  let boostLevels = {
+    jump: Math.min(BOOSTS.jump.costs.length, Math.max(0, loadNum(KEYS.boostJump, 0))),
+    capacity: Math.min(BOOSTS.capacity.costs.length, Math.max(0, loadNum(KEYS.boostCapacity, 0))),
+    regen: Math.min(BOOSTS.regen.costs.length, Math.max(0, loadNum(KEYS.boostRegen, 0)))
+  };
+  function getJumpBoostMultiplier() { return 1 + boostLevels.jump * BOOSTS.jump.perLevel; }
+  function getPulseMax() { return 3 + boostLevels.capacity * BOOSTS.capacity.perLevel; }
+  function getPulseRegen() { return 0.32 + boostLevels.regen * BOOSTS.regen.perLevel; }
+
+  // ---------- Content ----------
+  const SKINS = [
+    { id: 'blob', name: 'Glimmer', cost: 0, rarity: 'Common', desc: 'A clean classic. Make every jump count.' },
+    { id: 'cube', name: 'Byte', cost: 40, rarity: 'Common', desc: 'Pixel-perfect style with a digital edge.' },
+    { id: 'comet', name: 'Blaze', cost: 90, rarity: 'Rare', desc: 'A hot streak built for fast escapes.' },
+    { id: 'spark', name: 'Volt', cost: 150, rarity: 'Rare', desc: 'Electric energy in every tap.' },
+    { id: 'phantom', name: 'Wisp', cost: 220, rarity: 'Rare', desc: 'Slip through the chaos like a ghost.' },
+    { id: 'nova', name: 'Halo', cost: 320, rarity: 'Epic', desc: 'A luminous orbit with cosmic attitude.' },
+    { id: 'crystal', name: 'Prism', cost: 400, rarity: 'Epic', desc: 'Crystalline energy catches every light.' },
+    { id: 'aqua', name: 'Ripple', cost: 480, rarity: 'Epic', desc: 'Fluid motion. Impossible to ignore.' },
+    { id: 'shadow', name: 'Umbra', cost: 560, rarity: 'Epic', desc: 'A mysterious dark pulse with violet glow.' },
+    { id: 'robo', name: 'Circuit', cost: 640, rarity: 'Epic', desc: 'A futuristic core wired for action.' },
+    { id: 'butterfly', name: 'Monarch', cost: 720, rarity: 'Legendary', desc: 'Iridescent wings. Legendary presence.' },
+    { id: 'galaxy', name: 'Galaxy', cost: 1000, rarity: 'Legendary', desc: 'Not just a ball. It’s a whole universe.' }
+  ];
+  function getSkin(id) { return SKINS.find(s => s.id === id) || SKINS[0]; }
+
+  // Mission-exclusive skins: earned only by reaching a level milestone, never purchasable —
+  // this is the "unique beautiful skin" reward the game promises for real progress.
+  const MISSION_SKINS = [
+    { id: 'phoenix', name: 'Phoenix', unlockLevel: 10, rarity: 'Legendary', desc: 'Rise brighter after every close call.' },
+    { id: 'seraph', name: 'Seraph', unlockLevel: 20, rarity: 'Legendary', desc: 'A celestial glow reserved for the devoted.' },
+    { id: 'voidking', name: 'Void King', unlockLevel: 35, rarity: 'Legendary', desc: 'Rule the dark side of the arena.' },
+    { id: 'celestia', name: 'Celestia', unlockLevel: 50, rarity: 'Legendary', desc: 'The ultimate reward among the stars.' }
+  ];
+  function getMissionSkin(id) { return MISSION_SKINS.find(s => s.id === id); }
+
+  // ---------- 20 discrete levels: each is a fixed, distinct ENVIRONMENT ----------
+  // Finish one (reach its target score) to unlock the next. Nothing changes mid-level.
+  // Every level gets its own: color palette, background motif, ground scenery silhouette,
+  // obstacle material (changes how gates/spinners/mines are drawn), and gem shape.
+  const GOLDEN_ANGLE = 137.508;
+  const BG_SHAPES = ['linear', 'diagonal', 'radial'];
+
+  // [name, gateW, spinnerW, orbW, groundStyle, obstacleShape, gemShape, motif]
+  const LEVEL_META = [
+    ['Aurora Fields',    1,    0,    0,    'mountains', 'crystal', 'shard',     'stars'],
+    ['Cobalt Straits',   0.65, 0.35, 0,    'waves',     'coral',   'pearl',     'bubbles'],
+    ['Sand Whirl',       0.3,  0.7,  0,    'dunes',     'cactus',  'nugget',    'dust'],
+    ['Ember Hollow',     0.5,  0,    0.5,  'lavarock',  'lava',    'flame',     'embers'],
+    ['Static Maze',      0,    0.5,  0.5,  'skyline',   'metal',   'diamond',   'grid'],
+    ['Mine Run',         0,    0,    1,    'cave',      'rocky',   'nugget',    'dust'],
+    ['Prism Corridor',   0.34, 0.33, 0.33, 'crystals',  'crystal', 'shard',     'rays'],
+    ['Gale Chasm',       0.6,  0.4,  0,    'mountains', 'rocky',   'nugget',    'diagonal'],
+    ['Nightshade Vault', 0.2,  0.3,  0.5,  'vines',     'wood',    'leaf',      'pollen'],
+    ['Cryo Tunnel',      0.4,  0.2,  0.4,  'ice',       'icy',     'snowflake', 'snow'],
+    ['Solar Rift',       0.3,  0.4,  0.3,  'none',      'metal',   'star',      'rays'],
+    ['Obsidian Drift',   0.5,  0.5,  0,    'dunes',     'lava',    'shard',     'embers'],
+    ['Quantum Field',    0.25, 0.25, 0.5,  'none',      'metal',   'diamond',   'circuit'],
+    ['Crimson Gauntlet', 0,    0.6,  0.4,  'mountains', 'rocky',   'nugget',    'meteors'],
+    ['Frostbyte Alley',  0.45, 0.15, 0.4,  'skyline',   'metal',   'snowflake', 'snow'],
+    ['Neon Vortex',      0.15, 0.6,  0.25, 'skyline',   'metal',   'diamond',   'lasers'],
+    ['Ashfall Ruins',    0.4,  0.3,  0.3,  'ruins',     'rocky',   'nugget',    'embers'],
+    ['Zero-G Chamber',   0.2,  0.4,  0.4,  'none',      'metal',   'star',      'orbits'],
+    ['Twilight Spire',   0.33, 0.33, 0.34, 'mountains', 'crystal', 'shard',     'portal'],
+    ['The Singularity',  0.2,  0.3,  0.5,  'none',      'crystal', 'star',      'chaos'],
+    ['Emberfall Canyon', 0.3,  0.2,  0.5,  'lavarock',  'lava',    'flame',     'embers'],
+    ['Glacier Drift',    0.5,  0.5,  0,    'ice',       'icy',     'snowflake', 'snow'],
+    ['Verdant Canopy',   0.34, 0.33, 0.33, 'vines',     'wood',    'leaf',      'pollen'],
+    ['Starforge',        0.2,  0.4,  0.4,  'none',      'metal',   'star',      'circuit'],
+    ['Coral Abyss',      0.5,  0,    0.5,  'waves',     'coral',   'pearl',     'bubbles'],
+    ['Dune Requiem',     0.7,  0.3,  0,    'dunes',     'cactus',  'nugget',    'dust'],
+    ['Shattered Vault',  0.34, 0.33, 0.33, 'ruins',     'rocky',   'nugget',    'meteors'],
+    ['Crystal Echo',     0.2,  0.6,  0.2,  'crystals',  'crystal', 'shard',     'rays'],
+    ['Voidwalker',       0.33, 0.33, 0.34, 'none',      'metal',   'diamond',   'orbits'],
+    ['Molten Core',      0.2,  0.3,  0.5,  'lavarock',  'lava',    'flame',     'chaos'],
+    ['Frozen Bastion',   0.5,  0.5,  0,    'ice',       'icy',     'snowflake', 'portal'],
+    ['Skyline Rush',     0.15, 0.65, 0.2,  'skyline',   'metal',   'diamond',   'lasers'],
+    ['Cavern Depths',    0.1,  0.2,  0.7,  'cave',      'rocky',   'nugget',    'dust'],
+    ['Aurora Peak',      0.34, 0.33, 0.33, 'mountains', 'crystal', 'shard',     'stars'],
+    ['Thornveil',        0.45, 0.15, 0.4,  'vines',     'wood',    'leaf',      'pollen'],
+    ['Nebula Drift',     0.3,  0.35, 0.35, 'none',      'crystal', 'star',      'chaos'],
+    ['Sunscorch Dunes',  0.5,  0,    0.5,  'dunes',     'lava',    'flame',     'embers'],
+    ['Tidal Spire',      0.2,  0.4,  0.4,  'waves',     'coral',   'pearl',     'waves'],
+    ['Obsidian Reach',   0.34, 0.33, 0.33, 'ruins',     'rocky',   'shard',     'meteors'],
+    ['Halcyon Grid',     0.15, 0.6,  0.25, 'skyline',   'metal',   'diamond',   'grid'],
+    ['Wraithwood',       0.4,  0.2,  0.4,  'vines',     'wood',    'leaf',      'triangles'],
+    ['Diamond Vortex',   0.3,  0.35, 0.35, 'crystals',  'crystal', 'shard',     'spiral'],
+    ['Emberglass Wastes',0.4,  0,    0.6,  'lavarock',  'lava',    'flame',     'hexagons'],
+    ['Frostbound Citadel',0.2, 0.4,  0.4,  'ice',       'icy',     'snowflake', 'snow'],
+    ['Starlit Hollow',   0.3,  0.35, 0.35, 'none',      'metal',   'star',      'stars'],
+    ['Magma Rift',       0.15, 0.15, 0.7,  'lavarock',  'lava',    'flame',     'meteors'],
+    ['Crystalline Zenith',0.15,0.65, 0.2,  'crystals',  'crystal', 'shard',     'portal'],
+    ['Eclipse Vault',    0.3,  0.35, 0.35, 'ruins',     'rocky',   'nugget',    'chaos'],
+    ['Nova Ascendant',   0.25, 0.35, 0.4,  'none',      'crystal', 'star',      'rays'],
+    ['The Infinite',     0.2,  0.3,  0.5,  'none',      'crystal', 'star',      'chaos']
+  ];
+
+  function paletteFromHue(hue) {
+    const spinnerHue = (hue + 45) % 360;
+    const orbHue = (hue + 200) % 360;
+    return {
+      bg: ['hsl(' + hue.toFixed(1) + ',55%,8%)', 'hsl(' + hue.toFixed(1) + ',60%,3%)'],
+      gate: 'hsl(' + hue.toFixed(1) + ',72%,64%)',
+      gateDark: 'hsl(' + hue.toFixed(1) + ',72%,44%)',
+      spinner: 'hsl(' + spinnerHue.toFixed(1) + ',72%,60%)',
+      orb: 'hsl(' + orbHue.toFixed(1) + ',75%,60%)',
+      orbDark: 'hsl(' + orbHue.toFixed(1) + ',75%,38%)',
+      glow: 'hsla(' + hue.toFixed(1) + ',80%,65%,0.55)',
+      accent: 'hsl(' + hue.toFixed(1) + ',85%,72%)'
+    };
+  }
+
+  const LEVELS = LEVEL_META.map(function (meta, i) {
+    const hue = (250 + i * GOLDEN_ANGLE) % 360;
+    const palette = paletteFromHue(hue);
+    // attach per-level style info onto the palette too, so existing draw calls that only
+    // receive "currentPalette" automatically see obstacleShape/gemShape/groundStyle.
+    palette.obstacleShape = meta[5];
+    palette.gemShape = meta[6];
+    palette.groundStyle = meta[4];
+    return {
+      index: i + 1,
+      name: meta[0],
+      mix: [meta[1], meta[2], meta[3]],
+      groundStyle: meta[4],
+      obstacleShape: meta[5],
+      gemShape: meta[6],
+      motif: meta[7],
+      bgShape: BG_SHAPES[i % BG_SHAPES.length],
+      palette: palette,
+      target: 6 + Math.floor(i / 2),
+      gapHeightFactor: Math.max(0.55, 1 - i * 0.0092),
+      driftChance: Math.min(0.65, 0.1 + i * 0.0113),
+      spinnerSpeedBonus: Math.min(2.25, i * 0.046),
+      orbSpeedBonus: Math.min(145, i * 2.9),
+      doubleSpawnChance: Math.min(0.35, Math.max(0, (i - 3) * 0.0076)),
+      speedMultiplier: Math.min(2.3, 1 + i * 0.0265)
+    };
+  });
+  function getLevel(idx) { return LEVELS[Math.min(LEVELS.length, Math.max(1, idx)) - 1]; }
+
+  // ---------- Drawing helpers ----------
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+  function shade(hex, percent) {
+    const num = parseInt(hex.slice(1), 16);
+    let r = (num >> 16) + percent, g = ((num >> 8) & 0x00FF) + percent, b = (num & 0x0000FF) + percent;
+    r = Math.min(255, Math.max(0, r)); g = Math.min(255, Math.max(0, g)); b = Math.min(255, Math.max(0, b));
+    return '#' + (0x1000000 + r * 0x10000 + g * 0x100 + b).toString(16).slice(1);
+  }
+
+  // ---------- Custom character art (no emoji, no images — all drawn) ----------
+  function drawBlob(c, r, t) {
+    const squish = 1 + Math.sin(t * 4) * 0.06;
+    const g = c.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r * 1.1);
+    g.addColorStop(0, '#c9b8ff'); g.addColorStop(1, '#7c3aed');
+    c.shadowColor = 'rgba(124,58,237,0.7)'; c.shadowBlur = 16;
+    c.fillStyle = g;
+    c.beginPath(); c.ellipse(0, 0, r * squish, r / squish, 0, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#fff';
+    c.beginPath(); c.ellipse(-r * 0.28, -r * 0.1, r * 0.16, r * 0.2, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(r * 0.28, -r * 0.1, r * 0.16, r * 0.2, 0, 0, Math.PI * 2); c.fill();
+    const blink = (Math.sin(t * 2) > 0.94) ? 0.15 : 1;
+    c.fillStyle = '#241a3d';
+    c.beginPath(); c.ellipse(-r * 0.28, -r * 0.06, r * 0.07, r * 0.1 * blink, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(r * 0.28, -r * 0.06, r * 0.07, r * 0.1 * blink, 0, 0, Math.PI * 2); c.fill();
+  }
+  function drawCube(c, r, t) {
+    c.shadowColor = 'rgba(45,212,208,0.7)'; c.shadowBlur = 16;
+    const g = c.createLinearGradient(-r, -r, r, r);
+    g.addColorStop(0, '#a8fff8'); g.addColorStop(1, '#0ea5a0');
+    c.fillStyle = g;
+    roundRect(c, -r, -r, r * 2, r * 2, r * 0.35); c.fill();
+    c.shadowBlur = 0;
+    c.save(); roundRect(c, -r, -r, r * 2, r * 2, r * 0.35); c.clip();
+    c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 2;
+    const scanY = (((t * 60) % (r * 2.4)) - r * 1.2);
+    c.beginPath(); c.moveTo(-r, scanY); c.lineTo(r, scanY); c.stroke();
+    c.restore();
+    c.fillStyle = '#04302e';
+    c.beginPath(); c.arc(0, 0, r * 0.14, 0, Math.PI * 2); c.fill();
+  }
+  function drawComet(c, r, t) {
+    const g = c.createLinearGradient(-r * 2.3, 0, r * 0.5, 0);
+    g.addColorStop(0, 'rgba(255,159,74,0)'); g.addColorStop(1, '#ff9f4a');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(-r * 2.3, 0);
+    c.quadraticCurveTo(-r * 0.5, -r * 0.55, r * 0.4, 0);
+    c.quadraticCurveTo(-r * 0.5, r * 0.55, -r * 2.3, 0);
+    c.fill();
+    c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 18;
+    const gh = c.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.1, 0, 0, r);
+    gh.addColorStop(0, '#fff4d6'); gh.addColorStop(1, '#ff7a1a');
+    c.fillStyle = gh;
+    c.beginPath(); c.arc(0, 0, r * 0.75, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#5a2400';
+    c.beginPath(); c.arc(r * 0.1, -r * 0.05, r * 0.12, 0, Math.PI * 2); c.fill();
+  }
+  function drawSpark(c, r, t) {
+    c.save(); c.rotate(Math.PI / 4);
+    c.shadowColor = 'rgba(255,215,80,0.8)'; c.shadowBlur = 16;
+    const g = c.createLinearGradient(-r, -r, r, r);
+    g.addColorStop(0, '#fff3b0'); g.addColorStop(1, '#ffb300');
+    c.fillStyle = g;
+    roundRect(c, -r * 0.7, -r * 0.7, r * 1.4, r * 1.4, r * 0.2); c.fill();
+    c.restore();
+    c.shadowBlur = 0;
+    c.fillStyle = '#ffdd66';
+    [0, Math.PI / 2, Math.PI, Math.PI * 1.5].forEach(function (ang) {
+      c.save(); c.rotate(ang + Math.sin(t * 3) * 0.05);
+      c.beginPath();
+      c.moveTo(0, -r * 0.85); c.lineTo(r * 0.18, -r * 1.2); c.lineTo(-r * 0.18, -r * 1.2);
+      c.closePath(); c.fill();
+      c.restore();
+    });
+    c.fillStyle = '#5a3d00';
+    c.beginPath(); c.arc(0, 0, r * 0.14, 0, Math.PI * 2); c.fill();
+  }
+  function drawPhantom(c, r, t) {
+    c.shadowColor = 'rgba(180,220,255,0.7)'; c.shadowBlur = 14;
+    const g = c.createLinearGradient(0, -r, 0, r);
+    g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(1, 'rgba(150,200,255,0.6)');
+    c.fillStyle = g;
+    c.beginPath();
+    c.arc(0, -r * 0.1, r * 0.85, Math.PI, 0, false);
+    const bob = Math.sin(t * 4) * r * 0.08;
+    c.lineTo(r * 0.85, r * 0.5 + bob);
+    c.quadraticCurveTo(r * 0.4, r * 0.75 - bob, 0, r * 0.5 + bob);
+    c.quadraticCurveTo(-r * 0.4, r * 0.75 - bob, -r * 0.85, r * 0.5 + bob);
+    c.closePath();
+    c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#1a2a44';
+    c.beginPath(); c.arc(-r * 0.25, -r * 0.15, r * 0.1, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(r * 0.25, -r * 0.15, r * 0.1, 0, Math.PI * 2); c.fill();
+  }
+  function drawNova(c, r, t) {
+    c.save(); c.rotate(t * 2);
+    c.strokeStyle = 'rgba(255,110,196,0.85)'; c.lineWidth = r * 0.16;
+    c.beginPath(); c.ellipse(0, 0, r * 1.15, r * 0.55, 0, 0, Math.PI * 2); c.stroke();
+    c.restore();
+    c.shadowColor = 'rgba(255,110,196,0.9)'; c.shadowBlur = 18;
+    const g = c.createRadialGradient(0, 0, r * 0.1, 0, 0, r * 0.8);
+    g.addColorStop(0, '#fff'); g.addColorStop(0.45, '#ff6ec4'); g.addColorStop(1, '#b3006b');
+    c.fillStyle = g;
+    c.beginPath(); c.arc(0, 0, r * 0.7, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+  }
+
+  function drawGalaxySkin(c, r, t) {
+    c.save();
+    c.rotate(t * 0.45);
+    c.shadowColor = '#8d4dff'; c.shadowBlur = r * 0.75;
+    c.strokeStyle = 'rgba(199,115,255,.95)'; c.lineWidth = r * .13;
+    c.beginPath(); c.ellipse(0, 0, r * 1.22, r * .48, -.28, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = 'rgba(41,215,255,.85)'; c.lineWidth = r * .055;
+    c.beginPath(); c.ellipse(0, 0, r * 1.34, r * .58, -.28, .2, Math.PI * 1.65); c.stroke();
+    c.restore();
+    const g = c.createRadialGradient(-r*.28,-r*.35,r*.04,0,0,r*.88);
+    g.addColorStop(0,'#fff'); g.addColorStop(.18,'#e8c7ff'); g.addColorStop(.42,'#a13cff'); g.addColorStop(.72,'#3320a8'); g.addColorStop(1,'#080d31');
+    c.shadowColor = '#6f49ff'; c.shadowBlur = r*.8; c.fillStyle = g;
+    c.beginPath(); c.arc(0,0,r*.76,0,Math.PI*2); c.fill(); c.shadowBlur = 0;
+    c.save(); c.beginPath(); c.arc(0,0,r*.74,0,Math.PI*2); c.clip();
+    for(let i=0;i<26;i++){ const a=i*2.399+t*.08, rr=r*(.12+((i*37)%61)/100); c.fillStyle=i%3===0?'#fff':(i%2?'#45e7ff':'#f3a6ff'); c.globalAlpha=.45+((i%4)*.12); c.beginPath(); c.arc(Math.cos(a)*rr,Math.sin(a)*rr,r*(i%5===0?.035:.014),0,Math.PI*2); c.fill(); }
+    c.globalAlpha=1; c.restore();
+    c.fillStyle='#071026'; c.beginPath(); c.ellipse(r*.18,-r*.08,r*.35,r*.22,-.12,0,Math.PI*2); c.fill();
+    c.shadowColor='#fff'; c.shadowBlur=r*.28; c.fillStyle='#f7ffff'; c.beginPath(); c.ellipse(r*.25,-r*.08,r*.075,r*.14,-.12,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+  }
+
+  // ---- more purchasable skins ----
+  function drawCrystalSkin(c, r, t) {
+    c.shadowColor = 'rgba(180,220,255,0.8)'; c.shadowBlur = 18;
+    const g = c.createLinearGradient(-r, -r, r, r);
+    g.addColorStop(0, '#e0f7ff'); g.addColorStop(1, '#4fc3f7');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(0, -r); c.lineTo(r * 0.7, -r * 0.2); c.lineTo(r * 0.45, r); c.lineTo(-r * 0.45, r); c.lineTo(-r * 0.7, -r * 0.2);
+    c.closePath(); c.fill();
+    c.shadowBlur = 0;
+    c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(0, -r); c.lineTo(0, r * 0.3); c.stroke();
+    c.fillStyle = '#0a2b3d';
+    c.beginPath(); c.arc(-r * 0.2, -r * 0.05, r * 0.09, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(r * 0.2, -r * 0.05, r * 0.09, 0, Math.PI * 2); c.fill();
+  }
+  function drawAquaSkin(c, r, t) {
+    const wob = Math.sin(t * 3) * 0.08;
+    c.shadowColor = 'rgba(80,180,255,0.8)'; c.shadowBlur = 16;
+    const g = c.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.1, 0, 0, r);
+    g.addColorStop(0, '#e0faff'); g.addColorStop(1, '#1e90d8');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(0, -r * 1.2);
+    c.quadraticCurveTo(r * (0.8 + wob), -r * 0.1, 0, r);
+    c.quadraticCurveTo(-r * (0.8 + wob), -r * 0.1, 0, -r * 1.2);
+    c.closePath(); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#fff'; c.globalAlpha = 0.5;
+    c.beginPath(); c.ellipse(-r * 0.15, -r * 0.1, r * 0.18, r * 0.28, 0, 0, Math.PI * 2); c.fill();
+    c.globalAlpha = 1;
+    c.fillStyle = '#08344a';
+    c.beginPath(); c.arc(-r * 0.15, r * 0.05, r * 0.08, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(r * 0.15, r * 0.05, r * 0.08, 0, Math.PI * 2); c.fill();
+  }
+  function drawShadowSkin(c, r, t) {
+    c.shadowColor = 'rgba(140,80,255,0.6)'; c.shadowBlur = 20;
+    const g = c.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+    g.addColorStop(0, '#3a2a5c'); g.addColorStop(1, '#0a0614');
+    c.fillStyle = g;
+    const wave = Math.sin(t * 4) * r * 0.1;
+    c.beginPath();
+    c.arc(0, -r * 0.1, r * 0.85, Math.PI, 0, false);
+    c.lineTo(r * 0.85, r * 0.4 + wave);
+    c.quadraticCurveTo(r * 0.3, r * 0.7 - wave, 0, r * 0.4 + wave);
+    c.quadraticCurveTo(-r * 0.3, r * 0.7 - wave, -r * 0.85, r * 0.4 + wave);
+    c.closePath(); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#c9a6ff';
+    c.beginPath(); c.arc(-r * 0.22, -r * 0.15, r * 0.09, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(r * 0.22, -r * 0.15, r * 0.09, 0, Math.PI * 2); c.fill();
+  }
+  function drawRoboSkin(c, r, t) {
+    c.shadowColor = 'rgba(150,255,180,0.7)'; c.shadowBlur = 14;
+    const g = c.createLinearGradient(-r, -r, r, r);
+    g.addColorStop(0, '#d4ffe0'); g.addColorStop(1, '#2fae5c');
+    c.fillStyle = g;
+    roundRect(c, -r * 0.8, -r * 0.8, r * 1.6, r * 1.6, r * 0.25); c.fill();
+    c.shadowBlur = 0;
+    c.strokeStyle = '#2fae5c'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(0, -r * 0.8); c.lineTo(0, -r * 1.05); c.stroke();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(0, -r * 1.1, r * 0.08, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#08331a';
+    roundRect(c, -r * 0.5, -r * 0.15, r * 1.0, r * 0.35, r * 0.1); c.fill();
+    const blink = Math.sin(t * 2) > 0.9 ? 0.2 : 1;
+    c.fillStyle = '#7dffb0';
+    c.fillRect(-r * 0.4, -r * 0.05, r * 0.28, r * 0.15 * blink);
+    c.fillRect(r * 0.12, -r * 0.05, r * 0.28, r * 0.15 * blink);
+  }
+  function drawButterflySkin(c, r, t) {
+    const flap = Math.sin(t * 6) * 0.35 + 0.65;
+    c.shadowColor = 'rgba(255,150,220,0.7)'; c.shadowBlur = 16;
+    const wg = c.createLinearGradient(-r, -r, r, r);
+    wg.addColorStop(0, '#ffd6f0'); wg.addColorStop(1, '#ff5cb3');
+    c.fillStyle = wg;
+    c.save(); c.scale(flap, 1);
+    c.beginPath(); c.ellipse(-r * 0.55, -r * 0.15, r * 0.55, r * 0.45, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(-r * 0.5, r * 0.35, r * 0.4, r * 0.32, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(r * 0.55, -r * 0.15, r * 0.55, r * 0.45, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(r * 0.5, r * 0.35, r * 0.4, r * 0.32, 0, 0, Math.PI * 2); c.fill();
+    c.restore();
+    c.shadowBlur = 0;
+    const bg = c.createLinearGradient(0, -r, 0, r);
+    bg.addColorStop(0, '#7c3aed'); bg.addColorStop(1, '#4c1d95');
+    c.fillStyle = bg;
+    c.beginPath(); c.ellipse(0, 0, r * 0.16, r * 0.85, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc(-r * 0.06, -r * 0.55, r * 0.07, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(r * 0.06, -r * 0.55, r * 0.07, 0, Math.PI * 2); c.fill();
+  }
+
+  // ---- mission-exclusive legendary skins (earned by reaching a level, never purchasable) ----
+  function drawPhoenixSkin(c, r, t) {
+    const flap = Math.sin(t * 5) * 0.2;
+    for (let side = -1; side <= 1; side += 2) {
+      c.save(); c.scale(side, 1); c.rotate(flap * side * 0.3);
+      const wg = c.createLinearGradient(0, 0, r * 1.4, 0);
+      wg.addColorStop(0, '#ffef9e'); wg.addColorStop(0.5, '#ff9d3d'); wg.addColorStop(1, '#ff3d1f');
+      c.fillStyle = wg;
+      c.shadowColor = 'rgba(255,140,40,0.8)'; c.shadowBlur = 18;
+      c.beginPath();
+      c.moveTo(0, 0);
+      c.quadraticCurveTo(r * 0.7, -r * 0.6, r * 1.3, -r * 0.3);
+      c.quadraticCurveTo(r * 0.9, r * 0.05, r * 1.1, r * 0.4);
+      c.quadraticCurveTo(r * 0.5, r * 0.25, 0, r * 0.15);
+      c.closePath(); c.fill();
+      c.restore();
+    }
+    c.shadowBlur = 0;
+    const cg = c.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.1, 0, 0, r * 0.6);
+    cg.addColorStop(0, '#fff4d6'); cg.addColorStop(1, '#ff6a1a');
+    c.shadowColor = 'rgba(255,150,50,0.9)'; c.shadowBlur = 16;
+    c.fillStyle = cg;
+    c.beginPath(); c.arc(0, 0, r * 0.55, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#5a1c00';
+    c.beginPath(); c.arc(-r * 0.15, -r * 0.05, r * 0.07, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(r * 0.15, -r * 0.05, r * 0.07, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#ffcf5c';
+    c.beginPath(); c.moveTo(0, -r * 0.55); c.lineTo(r * 0.12, -r * 0.85); c.lineTo(-r * 0.12, -r * 0.85); c.closePath(); c.fill();
+  }
+  function drawSeraphSkin(c, r, t) {
+    const pulse = 1 + Math.sin(t * 2) * 0.06;
+    c.shadowColor = 'rgba(255,255,255,0.9)'; c.shadowBlur = 20;
+    c.fillStyle = 'rgba(255,255,255,0.85)';
+    for (let side = -1; side <= 1; side += 2) {
+      c.save(); c.scale(side, 1);
+      c.beginPath();
+      c.moveTo(0, 0);
+      c.quadraticCurveTo(r * 0.9, -r * 0.5, r * 1.2, 0);
+      c.quadraticCurveTo(r * 0.9, r * 0.1, r * 0.6, r * 0.3);
+      c.quadraticCurveTo(r * 0.4, r * 0.05, 0, r * 0.1);
+      c.closePath(); c.fill();
+      c.restore();
+    }
+    c.shadowBlur = 0;
+    c.strokeStyle = '#fff6c9'; c.lineWidth = 3;
+    c.shadowColor = 'rgba(255,246,201,0.9)'; c.shadowBlur = 14;
+    c.beginPath(); c.ellipse(0, -r * 1.05, r * 0.4, r * 0.12, 0, 0, Math.PI * 2); c.stroke();
+    c.shadowBlur = 0;
+    const g = c.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.1, 0, 0, r * 0.65 * pulse);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#bcd6ff');
+    c.shadowColor = 'rgba(200,220,255,0.9)'; c.shadowBlur = 18;
+    c.fillStyle = g;
+    c.beginPath(); c.arc(0, 0, r * 0.62 * pulse, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#2a3a5c';
+    c.beginPath(); c.arc(-r * 0.18, -r * 0.02, r * 0.07, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(r * 0.18, -r * 0.02, r * 0.07, 0, Math.PI * 2); c.fill();
+  }
+  function drawVoidKingSkin(c, r, t) {
+    c.shadowColor = 'rgba(150,0,255,0.7)'; c.shadowBlur = 20;
+    const g = c.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+    g.addColorStop(0, '#2a0a3d'); g.addColorStop(1, '#000006');
+    c.fillStyle = g;
+    c.beginPath(); c.arc(0, 0, r * 0.75, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#c084fc';
+    c.shadowColor = 'rgba(192,132,252,0.9)'; c.shadowBlur = 10;
+    c.beginPath();
+    c.moveTo(-r * 0.5, -r * 0.55);
+    c.lineTo(-r * 0.5, -r * 0.9); c.lineTo(-r * 0.25, -r * 0.65);
+    c.lineTo(0, -r * 1.0); c.lineTo(r * 0.25, -r * 0.65);
+    c.lineTo(r * 0.5, -r * 0.9); c.lineTo(r * 0.5, -r * 0.55);
+    c.closePath(); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = '#e9d5ff';
+    c.shadowColor = 'rgba(233,213,255,1)'; c.shadowBlur = 12;
+    c.beginPath(); c.arc(-r * 0.22, -r * 0.05, r * 0.09, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(r * 0.22, -r * 0.05, r * 0.09, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.save(); c.rotate(t * 1.5);
+    c.strokeStyle = 'rgba(192,132,252,0.6)'; c.lineWidth = 2;
+    c.beginPath(); c.ellipse(0, 0, r * 1.05, r * 0.35, 0, 0, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+  function drawCelestiaSkin(c, r, t) {
+    c.save(); c.rotate(t * 0.6);
+    const g = c.createRadialGradient(0, 0, r * 0.05, 0, 0, r * 0.9);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, '#a78bfa'); g.addColorStop(0.7, '#4c1d95'); g.addColorStop(1, '#0a0420');
+    c.shadowColor = 'rgba(167,139,250,0.9)'; c.shadowBlur = 22;
+    c.fillStyle = g;
+    c.beginPath(); c.arc(0, 0, r * 0.75, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 2;
+    for (let a = 0; a < 2; a++) {
+      c.save(); c.rotate(a * Math.PI);
+      c.beginPath();
+      for (let k = 0; k < 20; k++) {
+        const ang = k * 0.35, rad = k * (r * 0.035);
+        const x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
+        if (k === 0) c.moveTo(x, y); else c.lineTo(x, y);
+      }
+      c.stroke();
+      c.restore();
+    }
+    c.restore();
+    for (let i = 0; i < 5; i++) {
+      const ang = t * 1.2 + i * (Math.PI * 2 / 5);
+      const rad = r * 1.05;
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(Math.cos(ang) * rad, Math.sin(ang) * rad, r * 0.045, 0, Math.PI * 2); c.fill();
+    }
+    c.fillStyle = '#1a0a2e';
+    c.beginPath(); c.arc(-r * 0.18, -r * 0.05, r * 0.08, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(r * 0.18, -r * 0.05, r * 0.08, 0, Math.PI * 2); c.fill();
+  }
+
+  const SKIN_DRAW = {
+    blob: drawBlob, cube: drawCube, comet: drawComet, spark: drawSpark, phantom: drawPhantom, nova: drawNova,
+    crystal: drawCrystalSkin, aqua: drawAquaSkin, shadow: drawShadowSkin, robo: drawRoboSkin, butterfly: drawButterflySkin, galaxy: drawGalaxySkin,
+    phoenix: drawPhoenixSkin, seraph: drawSeraphSkin, voidking: drawVoidKingSkin, celestia: drawCelestiaSkin
+  };
+  // Every collectible now shares the premium glossy sci-fi orb language from the concept art.
+  // Each skin gets its own material, energy trail, orbit geometry and signature effects.
+  const ORB_STYLES = {
+    blob:{base:'#e9f5ff',mid:'#5c91ff',edge:'#07142f',glow:'#44aaff',trail:'#7ceaff',rarity:'common'},
+    cube:{base:'#d8ffff',mid:'#24d9ff',edge:'#052a4a',glow:'#00eaff',trail:'#74fff4',rarity:'common'},
+    comet:{base:'#fff0c2',mid:'#ff742b',edge:'#52120a',glow:'#ff542a',trail:'#ffb33e',rarity:'rare'},
+    spark:{base:'#fff9b8',mid:'#ffc22e',edge:'#543000',glow:'#ffce36',trail:'#fff18a',rarity:'rare'},
+    phantom:{base:'#f6fbff',mid:'#8c9cff',edge:'#141b45',glow:'#8bd9ff',trail:'#d7faff',rarity:'rare'},
+    nova:{base:'#ffe5ff',mid:'#c12bff',edge:'#260750',glow:'#ef48ff',trail:'#a94bff',rarity:'epic'},
+    crystal:{base:'#efffff',mid:'#36d7ff',edge:'#052c65',glow:'#18cfff',trail:'#9df5ff',rarity:'epic'},
+    aqua:{base:'#d5ffff',mid:'#16aee8',edge:'#052f56',glow:'#00cfff',trail:'#59fff4',rarity:'epic'},
+    shadow:{base:'#bda8ff',mid:'#4c16a8',edge:'#05030e',glow:'#8c32ff',trail:'#d34dff',rarity:'epic'},
+    robo:{base:'#dcfff0',mid:'#23c78b',edge:'#032c26',glow:'#2cffb4',trail:'#8bffd7',rarity:'epic'},
+    butterfly:{base:'#ffe8fb',mid:'#ff48bd',edge:'#420b53',glow:'#ff4fd8',trail:'#ff9ce9',rarity:'legendary'},
+    galaxy:{base:'#ffffff',mid:'#6d26ff',edge:'#03071c',glow:'#9b55ff',trail:'#28eaff',rarity:'legendary'},
+    phoenix:{base:'#fff4bb',mid:'#ff4d19',edge:'#4b0800',glow:'#ff652b',trail:'#ffc34b',rarity:'legendary'},
+    seraph:{base:'#ffffff',mid:'#8fcfff',edge:'#152b65',glow:'#d4f5ff',trail:'#fff4bd',rarity:'legendary'},
+    voidking:{base:'#e9c8ff',mid:'#6012c8',edge:'#03000a',glow:'#ae3dff',trail:'#5a5bff',rarity:'legendary'},
+    celestia:{base:'#ffffff',mid:'#8d7bff',edge:'#170b4d',glow:'#c5a4ff',trail:'#58e7ff',rarity:'legendary'}
+  };
+  function drawOrbitalSkin(c, skinId, r, t) {
+    const st = ORB_STYLES[skinId] || ORB_STYLES.blob;
+    const legendary = st.rarity === 'legendary';
+    const epic = st.rarity === 'epic';
+    c.save();
+    // energy trail / orbit silhouette
+    c.save(); c.rotate(t * (legendary ? .9 : .48));
+    c.shadowColor=st.glow; c.shadowBlur=r*(legendary?0.5:0.28);
+    c.strokeStyle=st.trail; c.globalAlpha=.88; c.lineWidth=Math.max(1.3,r*(legendary?.105:.075));
+    c.beginPath(); c.ellipse(0,0,r*(legendary?1.28:1.12),r*(legendary?.43:.34),-.25,0,Math.PI*2); c.stroke();
+    if (epic || legendary) {
+      c.strokeStyle=st.glow; c.globalAlpha=.58; c.lineWidth=Math.max(1,r*.035);
+      c.beginPath(); c.ellipse(0,0,r*1.4,r*.54,.42,.25,Math.PI*1.7); c.stroke();
+    }
+    c.restore(); c.globalAlpha=1;
+    // glossy spherical body
+    const pulse=1+Math.sin(t*2.3)* (legendary?.025:.012);
+    const g=c.createRadialGradient(-r*.28,-r*.34,r*.025,0,0,r*.79*pulse);
+    g.addColorStop(0,st.base); g.addColorStop(.18,st.mid); g.addColorStop(.56,st.edge); g.addColorStop(1,'#01020b');
+    c.shadowColor=st.glow; c.shadowBlur=r*(legendary?.65:.4); c.fillStyle=g;
+    c.beginPath(); c.arc(0,0,r*.75*pulse,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+    // glossy specular arcs and energy cracks
+    c.save(); c.beginPath(); c.arc(0,0,r*.735,0,Math.PI*2); c.clip();
+    c.strokeStyle='rgba(255,255,255,.82)'; c.lineWidth=Math.max(1,r*.035);
+    c.beginPath(); c.ellipse(-r*.12,-r*.18,r*.43,r*.2,-.58,Math.PI*1.05,Math.PI*1.78); c.stroke();
+    c.strokeStyle=st.trail; c.globalAlpha=.8; c.lineWidth=Math.max(1,r*.025);
+    for(let i=0;i<(legendary?5:epic?3:1);i++){
+      const a=t*(legendary?.9:.45)+i*2.4;
+      c.beginPath(); c.arc(0,0,r*(.38+i*.055),a,a+1.05); c.stroke();
+    }
+    // tiny nebula flecks in premium skins
+    if(epic || legendary){ for(let i=0;i<20;i++){const a=i*2.399+t*.13,rr=r*(.12+((i*29)%53)/100);c.fillStyle=i%3===0?'#fff':st.trail;c.globalAlpha=.28+(i%4)*.12;c.beginPath();c.arc(Math.cos(a)*rr,Math.sin(a)*rr,r*(i%5===0?.022:.009),0,Math.PI*2);c.fill();} }
+    c.globalAlpha=1; c.restore();
+    // signature black visor and luminous eyes, matching the concept's collectible style
+    c.fillStyle='rgba(0,3,15,.92)'; c.shadowColor=st.glow; c.shadowBlur=r*.18;
+    c.beginPath(); c.ellipse(r*.17,-r*.055,r*.34,r*.235,-.12,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+    c.fillStyle='#f7ffff'; c.shadowColor='#fff'; c.shadowBlur=r*.16;
+    c.beginPath(); c.ellipse(r*.25,-r*.065,r*.075,r*.14,-.12,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+    if (legendary) {
+      // crown-like spark points, reserved for legendary orbs
+      c.fillStyle=st.trail; c.shadowColor=st.glow; c.shadowBlur=r*.3;
+      for(let i=0;i<3;i++){const xx=(i-1)*r*.24;c.beginPath();c.moveTo(xx-r*.07,-r*.69);c.lineTo(xx,-r*(.91+(i===1?.09:0)));c.lineTo(xx+r*.07,-r*.69);c.closePath();c.fill();}
+      c.shadowBlur=0;
+    }
+    // floating particles around the orb
+    const count=legendary?7:epic?4:2;
+    for(let i=0;i<count;i++){const a=t*(legendary?1.1:.65)+i*Math.PI*2/count;const rr=r*(.95+(i%2)*.15);c.globalAlpha=.55+.35*Math.sin(t*3+i);c.fillStyle=i%2?st.trail:'#fff';c.beginPath();c.arc(Math.cos(a)*rr,Math.sin(a)*rr,r*(i%3===0?.055:.028),0,Math.PI*2);c.fill();}
+    c.globalAlpha=1; c.restore();
+  }
+  function drawCharacter(c, skinId, x, y, r, t) {
+    c.save(); c.translate(x, y);
+    drawOrbitalSkin(c, skinId, r, t);
+    c.restore();
+  }
+
+  function drawOverchargeGem(c, x, y, r, t) {
+    c.save(); c.translate(x, y);
+    const pulse = 1 + Math.sin(t * 6) * 0.12;
+    c.shadowColor = 'rgba(255,246,201,0.95)'; c.shadowBlur = 24;
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, r * pulse);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#fff6c9'); g.addColorStop(1, '#ffd76a');
+    c.fillStyle = g;
+    c.save(); c.rotate(t * 1.5);
+    c.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2;
+      const rad = (i % 2 === 0 ? r * pulse : r * pulse * 0.45);
+      const px = Math.cos(ang) * rad, py = Math.sin(ang) * rad;
+      if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+    }
+    c.closePath(); c.fill();
+    c.restore();
+    c.shadowBlur = 0;
+    c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = 1.5;
+    c.beginPath(); c.arc(0, 0, r * pulse * 0.55, 0, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+
+  function drawRocketPickup(c, x, y, r, t) {
+    c.save(); c.translate(x, y);
+    const wobble = Math.sin(t * 5) * 0.08;
+    c.rotate(-0.55 + wobble);
+    c.shadowColor = 'rgba(154,85,255,0.95)'; c.shadowBlur = 18;
+    // flame
+    const fg = c.createLinearGradient(0, r * 0.5, 0, r * 1.5);
+    fg.addColorStop(0, '#ffffff'); fg.addColorStop(0.5, '#42e7ff'); fg.addColorStop(1, 'rgba(123,54,255,0)');
+    c.fillStyle = fg;
+    c.beginPath();
+    c.moveTo(-r * 0.28, r * 0.5); c.lineTo(r * 0.28, r * 0.5);
+    c.lineTo(0, r * (1.4 + Math.sin(t * 20) * 0.15));
+    c.closePath(); c.fill();
+    // body
+    const bg = c.createLinearGradient(-r * 0.4, 0, r * 0.4, 0);
+    bg.addColorStop(0, '#eafcff'); bg.addColorStop(0.5, '#9c8aff'); bg.addColorStop(1, '#3a7cff');
+    c.fillStyle = bg;
+    c.beginPath();
+    c.moveTo(0, -r * 1.15);
+    c.quadraticCurveTo(r * 0.42, -r * 0.6, r * 0.34, r * 0.5);
+    c.lineTo(-r * 0.34, r * 0.5);
+    c.quadraticCurveTo(-r * 0.42, -r * 0.6, 0, -r * 1.15);
+    c.closePath(); c.fill();
+    c.shadowBlur = 0;
+    // nose cone
+    c.fillStyle = '#b477ff';
+    c.beginPath(); c.moveTo(0, -r * 1.15); c.lineTo(r * 0.22, -r * 0.65); c.lineTo(-r * 0.22, -r * 0.65); c.closePath(); c.fill();
+    // window
+    c.fillStyle = '#36eaff';
+    c.beginPath(); c.arc(0, -r * 0.25, r * 0.16, 0, Math.PI * 2); c.fill();
+    // fins
+    c.fillStyle = '#b477ff';
+    c.beginPath(); c.moveTo(-r * 0.34, r * 0.15); c.lineTo(-r * 0.62, r * 0.5); c.lineTo(-r * 0.34, r * 0.5); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(r * 0.34, r * 0.15); c.lineTo(r * 0.62, r * 0.5); c.lineTo(r * 0.34, r * 0.5); c.closePath(); c.fill();
+    c.restore();
+  }
+
+
+  // Visible rocket vehicle that carries the orb during the boost.
+  function drawRocketVehicle(c, x, y, r, t) {
+    c.save();
+    c.translate(x + r * 0.12, y + Math.sin(t * 16) * r * 0.045);
+    c.rotate(Math.sin(t * 7) * 0.035);
+    const flamePulse = 0.82 + (Math.sin(t * 27) + 1) * 0.16;
+
+    // Long animated exhaust flame.
+    c.save();
+    c.shadowColor = '#42e7ff'; c.shadowBlur = r * 1.1;
+    const flame = c.createLinearGradient(-r * 1.95, 0, -r * 0.48, 0);
+    flame.addColorStop(0, 'rgba(166,93,255,0)');
+    flame.addColorStop(0.35, 'rgba(166,93,255,0.75)');
+    flame.addColorStop(0.72, 'rgba(54,234,255,0.98)');
+    flame.addColorStop(1, 'rgba(255,255,255,0.98)');
+    c.fillStyle = flame;
+    c.beginPath();
+    c.moveTo(-r * 0.48, -r * 0.24);
+    c.lineTo(-r * (0.95 + flamePulse * 0.38), 0);
+    c.lineTo(-r * 0.48, r * 0.24);
+    c.closePath(); c.fill();
+    c.restore();
+
+    // Rear fins.
+    c.shadowColor = '#a76bff'; c.shadowBlur = r * 0.35;
+    c.fillStyle = '#8b55ff'; c.strokeStyle = '#d8c4ff';
+    c.lineWidth = Math.max(1, r * 0.045);
+    c.beginPath();
+    c.moveTo(-r * 0.55, -r * 0.15); c.lineTo(-r * 1.0, -r * 0.72);
+    c.lineTo(-r * 0.12, -r * 0.48); c.closePath(); c.fill(); c.stroke();
+    c.beginPath();
+    c.moveTo(-r * 0.55, r * 0.15); c.lineTo(-r * 1.0, r * 0.72);
+    c.lineTo(-r * 0.12, r * 0.48); c.closePath(); c.fill(); c.stroke();
+
+    // Main metallic body, pointing in the direction of travel.
+    const body = c.createLinearGradient(0, -r * 0.43, 0, r * 0.43);
+    body.addColorStop(0, '#f8ffff'); body.addColorStop(0.24, '#b9c8ff');
+    body.addColorStop(0.52, '#7865ff'); body.addColorStop(0.8, '#355cff');
+    body.addColorStop(1, '#d6fbff');
+    c.fillStyle = body; c.strokeStyle = '#f2ffff';
+    c.lineWidth = Math.max(1.5, r * 0.06);
+    c.shadowColor = '#5ceaff'; c.shadowBlur = r * 0.6;
+    c.beginPath();
+    c.moveTo(-r * 0.72, -r * 0.32); c.lineTo(r * 0.45, -r * 0.32);
+    c.quadraticCurveTo(r * 1.02, -r * 0.25, r * 1.25, 0);
+    c.quadraticCurveTo(r * 1.02, r * 0.25, r * 0.45, r * 0.32);
+    c.lineTo(-r * 0.72, r * 0.32);
+    c.quadraticCurveTo(-r * 0.92, 0, -r * 0.72, -r * 0.32);
+    c.closePath(); c.fill(); c.stroke(); c.shadowBlur = 0;
+
+    // Bright nose and cockpit.
+    c.fillStyle = '#ffffff';
+    c.beginPath(); c.moveTo(r * 0.72, -r * 0.2); c.lineTo(r * 1.28, 0);
+    c.lineTo(r * 0.72, r * 0.2); c.closePath(); c.fill();
+    c.fillStyle = '#07152f'; c.strokeStyle = '#45efff';
+    c.lineWidth = Math.max(1.5, r * 0.06);
+    c.beginPath(); c.ellipse(r * 0.28, 0, r * 0.21, r * 0.23, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+    c.fillStyle = '#ffffff'; c.globalAlpha = 0.85;
+    c.beginPath(); c.arc(r * 0.33, -r * 0.075, r * 0.055, 0, Math.PI * 2); c.fill();
+    c.globalAlpha = 1; c.restore();
+  }
+
+  function drawWindLines(c, t) {
+    c.save();
+    for (let i = 0; i < 9; i++) {
+      const laneY = (i / 9) * H + (Math.sin(i * 2.1) * 14);
+      const speed = 1200 + (i % 3) * 260;
+      const spacing = 210;
+      const phase = (t * speed + i * 97) % (W + spacing) ;
+      const len = 34 + (i % 3) * 22;
+      const xEnd = W - phase;
+      c.globalAlpha = 0.1 + 0.08 * ((i % 3));
+      c.strokeStyle = '#ffffff';
+      c.lineWidth = 1.6;
+      c.beginPath();
+      c.moveTo(xEnd, laneY);
+      c.lineTo(xEnd - len, laneY);
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawPulseMeter(c, pulse) {
+    const w = 84, h = 8, x = 16, y = 16;
+    c.save();
+    c.fillStyle = 'rgba(255,255,255,0.12)';
+    roundRect(c, x, y, w, h, 4); c.fill();
+    const frac = Math.max(0, Math.min(1, pulse / getPulseMax()));
+    const g = c.createLinearGradient(x, 0, x + w, 0);
+    if (frac < 0.34) { g.addColorStop(0, '#ff6a6a'); g.addColorStop(1, '#ff9a6a'); }
+    else { g.addColorStop(0, '#fff6c9'); g.addColorStop(1, '#ffd76a'); }
+    c.fillStyle = g;
+    if (frac > 0.02) { roundRect(c, x, y, w * frac, h, 4); c.fill(); }
+    c.restore();
+  }
+
+  function drawRocketMeter(c, timer) {
+    const w = 84, h = 6, x = 16, y = 28;
+    c.save();
+    c.fillStyle = 'rgba(255,255,255,0.12)';
+    roundRect(c, x, y, w, h, 3); c.fill();
+    const frac = Math.max(0, Math.min(1, timer / ROCKET_DURATION));
+    const g = c.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, '#ffb347'); g.addColorStop(1, '#ff5c4d');
+    c.fillStyle = g;
+    if (frac > 0.02) { roundRect(c, x, y, w * frac, h, 3); c.fill(); }
+    c.restore();
+  }
+
+  function drawRocketCountdown(c, timer, t) {
+    const number = Math.max(1, Math.ceil(timer));
+    const pulse = 1 + Math.sin(t * 12) * 0.055;
+    c.save();
+    c.translate(W * 0.5, H * 0.30);
+    c.scale(pulse, pulse);
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = '900 ' + Math.round(Math.min(W * 0.22, 86)) + 'px system-ui, sans-serif';
+    c.lineJoin = 'round'; c.lineWidth = 7;
+    c.strokeStyle = 'rgba(12,8,36,0.82)'; c.strokeText(String(number), 0, 0);
+    c.shadowColor = '#8c4dff'; c.shadowBlur = 28;
+    const grad = c.createLinearGradient(0, -38, 0, 42);
+    grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.45, '#d6a6ff'); grad.addColorStop(1, '#36eaff');
+    c.fillStyle = grad; c.fillText(String(number), 0, 0);
+    c.shadowBlur = 0; c.font = '800 12px system-ui, sans-serif';
+    c.fillStyle = 'rgba(235,225,255,0.94)'; c.letterSpacing = '2px';
+    c.fillText('ROCKET ENDING', 0, Math.min(62, H * 0.075));
+    c.restore();
+  }
+
+  function drawGem(c, x, y, r, t, shape) {
+    // One consistent collectible design across every world: a luminous faceted crystal
+    // with a thin orbital ring, matching Flyball's cosmic concept art.
+    c.save(); c.translate(x, y);
+    const bob = Math.sin(t * 2.8 + x * 0.01) * r * 0.08;
+    c.translate(0, bob);
+    c.rotate(Math.sin(t * 1.6 + x * 0.004) * 0.07);
+    c.shadowColor = '#9a55ff'; c.shadowBlur = r * 1.25;
+    c.strokeStyle = 'rgba(154,77,255,0.9)'; c.lineWidth = Math.max(1, r * 0.09);
+    c.beginPath(); c.ellipse(0, 0, r * 1.55, r * 0.42, Math.sin(t * 0.7) * 0.12, 0, Math.PI * 2); c.stroke();
+    c.shadowColor = '#48dfff'; c.shadowBlur = r * 0.9;
+    const gem = c.createLinearGradient(-r, -r * 1.25, r, r * 1.2);
+    gem.addColorStop(0, '#fffaff'); gem.addColorStop(0.25, '#f2a9ff');
+    gem.addColorStop(0.52, '#a77bff'); gem.addColorStop(0.76, '#36e5ff'); gem.addColorStop(1, '#d9faff');
+    c.fillStyle = gem;
+    c.beginPath(); c.moveTo(0, -r * 1.35); c.lineTo(r * 0.78, -r * 0.24);
+    c.lineTo(0, r * 1.25); c.lineTo(-r * 0.78, -r * 0.24); c.closePath(); c.fill();
+    c.shadowBlur = 0;
+    // Crisp internal facets make the gem read as cut crystal, not a flat diamond.
+    c.fillStyle = 'rgba(255,255,255,0.52)';
+    c.beginPath(); c.moveTo(0, -r * 1.27); c.lineTo(0, -r * 0.22); c.lineTo(-r * 0.68, -r * 0.25); c.closePath(); c.fill();
+    c.fillStyle = 'rgba(34,220,255,0.55)';
+    c.beginPath(); c.moveTo(0, -r * 0.22); c.lineTo(r * 0.68, -r * 0.25); c.lineTo(0, r * 1.12); c.closePath(); c.fill();
+    c.fillStyle = 'rgba(133,68,255,0.45)';
+    c.beginPath(); c.moveTo(-r * 0.68, -r * 0.25); c.lineTo(0, -r * 0.22); c.lineTo(0, r * 1.12); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = Math.max(0.8, r * 0.055);
+    c.beginPath(); c.moveTo(0, -r * 1.35); c.lineTo(r * 0.78, -r * 0.24); c.lineTo(0, r * 1.25); c.lineTo(-r * 0.78, -r * 0.24); c.closePath(); c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,0.62)'; c.beginPath(); c.moveTo(-r * 0.68, -r * 0.25); c.lineTo(r * 0.68, -r * 0.25); c.moveTo(0, -r * 1.3); c.lineTo(0, r * 1.2); c.stroke();
+    c.restore();
+  }
+
+  function drawGate(c, o, level) {
+    const style = level.obstacleShape || 'metal';
+    c.save();
+    c.shadowColor = level.glow; c.shadowBlur = 5;
+    const g1 = c.createLinearGradient(o.x - o.width / 2, 0, o.x + o.width / 2, 0);
+    g1.addColorStop(0, level.gateDark); g1.addColorStop(1, level.gate);
+    c.fillStyle = g1;
+    c.fillRect(o.x - o.width / 2, 0, o.width, o._gapTop);
+    c.fillRect(o.x - o.width / 2, o._gapBottom, o.width, H - o._gapBottom);
+    c.shadowBlur = 0;
+    c.fillStyle = 'rgba(255,255,255,0.4)';
+    c.fillRect(o.x - o.width / 2, o._gapTop, o.width, 3);
+
+    // High-tech barrier plating: a bright inner spine and animated diagonal energy slashes.
+    const pulse = 0.55 + (Math.sin(performance.now() / 105 + o.x * 0.025) + 1) * 0.18;
+    c.globalAlpha = pulse;
+    c.fillStyle = 'rgba(255,255,255,0.6)';
+    c.fillRect(o.x - o.width * 0.08, 0, Math.max(2, o.width * 0.08), Math.max(0, o._gapTop - 4));
+    c.fillRect(o.x - o.width * 0.08, o._gapBottom + 4, Math.max(2, o.width * 0.08), Math.max(0, H - o._gapBottom - 4));
+    c.globalAlpha = 1;
+    c.strokeStyle = 'rgba(255,255,255,0.22)'; c.lineWidth = 1;
+    for (let yy = 20; yy < o._gapTop - 8; yy += 28) {
+      c.beginPath(); c.moveTo(o.x - o.width * .32, yy); c.lineTo(o.x + o.width * .32, yy + 8); c.stroke();
+    }
+    for (let yy = o._gapBottom + 20; yy < H - 8; yy += 28) {
+      c.beginPath(); c.moveTo(o.x - o.width * .32, yy); c.lineTo(o.x + o.width * .32, yy + 8); c.stroke();
+    }
+
+    // material accents at the gap edges — this is what makes the SAME gap-gate read as
+    // ice, rock, cactus, coral, wood, or crystal depending on the level.
+    const left = o.x - o.width / 2 + 3, right = o.x + o.width / 2 - 3;
+    if (style === 'icy') {
+      c.fillStyle = 'rgba(255,255,255,0.65)';
+      for (let x = left; x < right; x += 9) {
+        c.beginPath(); c.moveTo(x, o._gapTop); c.lineTo(x + 4.5, o._gapTop - 11); c.lineTo(x + 9, o._gapTop); c.closePath(); c.fill();
+        c.beginPath(); c.moveTo(x, o._gapBottom); c.lineTo(x + 4.5, o._gapBottom + 11); c.lineTo(x + 9, o._gapBottom); c.closePath(); c.fill();
+      }
+    } else if (style === 'cactus') {
+      c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = 2;
+      for (let x = left; x < right; x += 10) {
+        c.beginPath(); c.moveTo(x, o._gapTop); c.lineTo(x, o._gapTop - 7); c.stroke();
+        c.beginPath(); c.moveTo(x, o._gapBottom); c.lineTo(x, o._gapBottom + 7); c.stroke();
+      }
+    } else if (style === 'rocky' || style === 'lava') {
+      c.fillStyle = style === 'lava' ? level.orb : 'rgba(0,0,0,0.4)';
+      for (let x = left; x < right; x += 13) {
+        const j = ((x * 13) % 7) - 3;
+        c.beginPath(); c.moveTo(x, o._gapTop); c.lineTo(x + 6.5, o._gapTop - 9 + j); c.lineTo(x + 13, o._gapTop); c.closePath(); c.fill();
+        c.beginPath(); c.moveTo(x, o._gapBottom); c.lineTo(x + 6.5, o._gapBottom + 9 - j); c.lineTo(x + 13, o._gapBottom); c.closePath(); c.fill();
+      }
+    } else if (style === 'wood') {
+      c.strokeStyle = 'rgba(0,0,0,0.28)'; c.lineWidth = 1;
+      for (let y = 8; y < o._gapTop; y += 11) { c.beginPath(); c.moveTo(o.x - o.width / 2, y); c.lineTo(o.x + o.width / 2, y); c.stroke(); }
+      for (let y = o._gapBottom + 8; y < H; y += 11) { c.beginPath(); c.moveTo(o.x - o.width / 2, y); c.lineTo(o.x + o.width / 2, y); c.stroke(); }
+    } else if (style === 'coral') {
+      c.fillStyle = 'rgba(255,255,255,0.45)';
+      for (let x = left; x < right; x += 15) {
+        c.beginPath(); c.arc(x, o._gapTop - 4, 3, 0, Math.PI * 2); c.fill();
+        c.beginPath(); c.arc(x, o._gapBottom + 4, 3, 0, Math.PI * 2); c.fill();
+      }
+    } else if (style === 'crystal') {
+      c.strokeStyle = 'rgba(255,255,255,0.4)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(o.x - o.width / 2, 0); c.lineTo(o.x + o.width / 2, o._gapTop); c.stroke();
+      c.beginPath(); c.moveTo(o.x - o.width / 2, H); c.lineTo(o.x + o.width / 2, o._gapBottom); c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawSpinner(c, o, level) {
+    const style = level.obstacleShape || 'metal';
+    const t = performance.now() / 1000;
+    c.save();
+    c.translate(o.x, o.pivotY);
+    // Four independent spear blades make a much more readable, dangerous rotor.
+    c.save();
+    c.rotate(o.angle);
+    c.shadowColor = level.glow; c.shadowBlur = 8;
+    const bladeGrad = c.createLinearGradient(0, -o.thickness, 0, o.thickness);
+    bladeGrad.addColorStop(0, '#ffffff');
+    bladeGrad.addColorStop(0.18, level.spinner);
+    bladeGrad.addColorStop(0.52, level.gateDark || '#222044');
+    bladeGrad.addColorStop(0.82, level.spinner);
+    bladeGrad.addColorStop(1, '#e9fbff');
+    for (let i = 0; i < 4; i++) {
+      c.save(); c.rotate(i * Math.PI / 2);
+      const R = o.radius, T = o.thickness;
+      c.fillStyle = bladeGrad;
+      c.strokeStyle = 'rgba(255,255,255,0.92)'; c.lineWidth = Math.max(1.2, T * 0.09);
+      c.beginPath();
+      c.moveTo(R, 0);
+      c.lineTo(R * 0.58, -T * 0.14);
+      c.lineTo(R * 0.38, -T * 0.72);
+      c.lineTo(R * 0.16, -T * 0.5);
+      c.lineTo(-R * 0.1, -T * 0.34);
+      c.lineTo(-R * 0.22, 0);
+      c.lineTo(-R * 0.1, T * 0.34);
+      c.lineTo(R * 0.16, T * 0.5);
+      c.lineTo(R * 0.38, T * 0.72);
+      c.lineTo(R * 0.58, T * 0.14);
+      c.closePath(); c.fill(); c.stroke();
+      // Inlaid luminous spine and little warning chevrons.
+      c.shadowBlur = 7; c.strokeStyle = '#aaf8ff'; c.lineWidth = Math.max(1, T * 0.075);
+      c.beginPath(); c.moveTo(-R * 0.04, 0); c.lineTo(R * 0.78, 0); c.stroke();
+      c.shadowBlur = 0; c.fillStyle = 'rgba(255,255,255,0.92)';
+      for (let q = 0; q < 3; q++) {
+        const x = R * (0.12 + q * 0.16);
+        c.beginPath(); c.moveTo(x, -T * 0.24); c.lineTo(x + T * 0.16, 0); c.lineTo(x, T * 0.24); c.closePath(); c.fill();
+      }
+      // Sharp energized tip.
+      c.fillStyle = '#ffffff'; c.shadowColor = level.glow; c.shadowBlur = 13;
+      c.beginPath(); c.moveTo(R, 0); c.lineTo(R * 0.78, -T * 0.12); c.lineTo(R * 0.83, 0); c.lineTo(R * 0.78, T * 0.12); c.closePath(); c.fill();
+      c.restore();
+    }
+    c.restore();
+
+    // Rotating outer halo and segmented armored hub.
+    c.rotate(-o.angle * 0.72);
+    c.strokeStyle = 'rgba(110,235,255,0.68)'; c.lineWidth = Math.max(1.5, o.thickness * 0.12);
+    c.shadowColor = '#42eaff'; c.shadowBlur = 5;
+    c.beginPath(); c.arc(0, 0, o.thickness * 1.48, 0.12, Math.PI * 1.78); c.stroke();
+    c.strokeStyle = 'rgba(198,120,255,0.8)'; c.lineWidth = Math.max(1, o.thickness * 0.09);
+    c.beginPath(); c.arc(0, 0, o.thickness * 1.25, Math.PI * 1.05, Math.PI * 2.8); c.stroke();
+    c.shadowBlur = 0;
+    const hubR = o.thickness * 1.03;
+    const hub = c.createRadialGradient(-hubR * .35, -hubR * .4, 1, 0, 0, hubR);
+    hub.addColorStop(0, '#f9ffff'); hub.addColorStop(.18, level.spinner); hub.addColorStop(.58, '#272044'); hub.addColorStop(1, '#08091c');
+    c.fillStyle = hub; c.strokeStyle = '#e5fdff'; c.lineWidth = Math.max(1.5, o.thickness * .12);
+    c.beginPath(); c.arc(0, 0, hubR, 0, Math.PI * 2); c.fill(); c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,.62)'; c.lineWidth = Math.max(1, o.thickness * .06);
+    c.beginPath(); c.arc(0, 0, hubR * .72, 0, Math.PI * 2); c.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4 + t * 1.8;
+      c.fillStyle = i % 2 ? '#42eaff' : '#ffffff';
+      c.beginPath(); c.arc(Math.cos(a) * hubR * .84, Math.sin(a) * hubR * .84, Math.max(1.2, o.thickness * .075), 0, Math.PI * 2); c.fill();
+    }
+    c.shadowColor = level.glow; c.shadowBlur = 6;
+    c.fillStyle = '#ffffff'; c.beginPath(); c.arc(0, 0, hubR * .32, 0, Math.PI * 2); c.fill();
+    c.fillStyle = level.spinner; c.beginPath(); c.arc(0, 0, hubR * .19, 0, Math.PI * 2); c.fill();
+    c.restore();
+  }
+
+  function drawOrb(c, o, level) {
+    const style = level.obstacleShape || 'metal';
+    c.save(); c.translate(o.x, o.y);
+    c.shadowColor = level.glow; c.shadowBlur = 6;
+    const g = c.createRadialGradient(-o.r * 0.3, -o.r * 0.3, o.r * 0.1, 0, 0, o.r);
+    g.addColorStop(0, '#fff'); g.addColorStop(0.35, level.orb); g.addColorStop(1, level.orbDark);
+    c.fillStyle = g;
+    c.beginPath(); c.arc(0, 0, o.r * 0.7, 0, Math.PI * 2); c.fill();
+    c.shadowBlur = 0;
+    c.fillStyle = level.orb;
+
+    // Orbiting containment rings and segmented armor make the mine feel engineered.
+    c.save();
+    c.rotate(o.spin * 0.65);
+    c.strokeStyle = 'rgba(255,255,255,0.72)'; c.lineWidth = Math.max(1, o.r * 0.065);
+    c.shadowColor = level.glow; c.shadowBlur = 8;
+    c.beginPath(); c.ellipse(0, 0, o.r * 0.92, o.r * 0.46, -0.28, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = 'rgba(80,240,255,0.75)'; c.lineWidth = Math.max(1, o.r * 0.045);
+    c.beginPath(); c.ellipse(0, 0, o.r * 0.46, o.r * 0.94, 0.3, 0, Math.PI * 2); c.stroke();
+    c.shadowBlur = 0;
+    for (let plate = 0; plate < 8; plate++) {
+      const a = plate * Math.PI / 4;
+      c.save(); c.rotate(a);
+      c.fillStyle = plate % 2 ? level.orbDark : level.orb;
+      c.strokeStyle = 'rgba(255,255,255,0.62)'; c.lineWidth = Math.max(1, o.r * 0.045);
+      c.beginPath(); c.moveTo(o.r * .35, -o.r * .16); c.lineTo(o.r * .58, -o.r * .1); c.lineTo(o.r * .63, 0); c.lineTo(o.r * .58, o.r * .1); c.lineTo(o.r * .35, o.r * .16); c.closePath(); c.fill(); c.stroke();
+      c.restore();
+    }
+    c.restore();
+    // Bright central energy core with a crisp iris and specular glint.
+    const core = c.createRadialGradient(-o.r * .2, -o.r * .24, 1, 0, 0, o.r * .64);
+    core.addColorStop(0, '#ffffff'); core.addColorStop(.18, level.spinner); core.addColorStop(.52, level.orb); core.addColorStop(1, level.orbDark);
+    c.fillStyle = core; c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = Math.max(1, o.r * .055);
+    c.beginPath(); c.arc(0, 0, o.r * .58, 0, Math.PI * 2); c.fill(); c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,0.65)'; c.lineWidth = Math.max(1, o.r * .04);
+    c.beginPath(); c.arc(0, 0, o.r * .4, o.spin * .7, o.spin * .7 + Math.PI * 1.55); c.stroke();
+    c.fillStyle = '#ffffff'; c.beginPath(); c.arc(-o.r * .2, -o.r * .24, Math.max(1.5, o.r * .095), 0, Math.PI * 2); c.fill();
+    c.fillStyle = level.orb;
+
+    // spike style varies by material: long thin ice/crystal shards, short thick cactus
+    // thorns, forked coral branches, craggy rock/lava chunks, or stubby metal bolts.
+    let spikes = 8, lenMul = 1, wMul = 1, forked = false, tipDot = false;
+    if (style === 'icy') { spikes = 10; lenMul = 1.3; wMul = 0.55; }
+    else if (style === 'crystal') { spikes = 6; lenMul = 1.4; wMul = 0.5; }
+    else if (style === 'cactus') { spikes = 8; lenMul = 0.75; wMul = 1.3; tipDot = true; }
+    else if (style === 'coral') { spikes = 7; lenMul = 1.0; wMul = 1.0; forked = true; }
+    else if (style === 'lava') { spikes = 9; lenMul = 1.1; wMul = 1.1; }
+    else if (style === 'metal') { spikes = 6; lenMul = 0.85; wMul = 1.4; tipDot = true; }
+    else if (style === 'rocky') { spikes = 9; lenMul = 1.0; wMul = 1.2; }
+    else if (style === 'wood') { spikes = 6; lenMul = 1.0; wMul = 0.6; }
+
+    for (let i = 0; i < spikes; i++) {
+      const ang = (i / spikes) * Math.PI * 2 + o.spin;
+      const innerR = o.r * 0.68, outerR = o.r * (0.68 + 0.47 * lenMul);
+      const x1 = Math.cos(ang) * innerR, y1 = Math.sin(ang) * innerR;
+      const x2 = Math.cos(ang) * outerR, y2 = Math.sin(ang) * outerR;
+      const perp = ang + Math.PI / 2;
+      const wx = Math.cos(perp) * o.r * 0.12 * wMul, wy = Math.sin(perp) * o.r * 0.12 * wMul;
+      c.beginPath();
+      c.moveTo(x1 + wx, y1 + wy); c.lineTo(x2, y2); c.lineTo(x1 - wx, y1 - wy);
+      c.closePath(); c.fill();
+      if (tipDot) { c.beginPath(); c.arc(x2, y2, 2, 0, Math.PI * 2); c.fill(); }
+      if (forked) {
+        const fAng1 = ang + 0.4, fAng2 = ang - 0.4;
+        c.strokeStyle = level.orb; c.lineWidth = 1.5;
+        c.beginPath(); c.moveTo(x2, y2); c.lineTo(x2 + Math.cos(fAng1) * o.r * 0.22, y2 + Math.sin(fAng1) * o.r * 0.22); c.stroke();
+        c.beginPath(); c.moveTo(x2, y2); c.lineTo(x2 + Math.cos(fAng2) * o.r * 0.22, y2 + Math.sin(fAng2) * o.r * 0.22); c.stroke();
+      }
+    }
+    c.restore();
+  }
+
+  function updateStartPreview() {
+    const sctx = startCharPreview.getContext('2d');
+    sctx.clearRect(0, 0, 64, 64);
+    drawCharacter(sctx, selectedSkin, 32, 32, 20, performance.now() / 1000);
+    const lvlDef = getLevel(unlockedLevel);
+    const lctx = startLevelPreview.getContext('2d');
+    const lvl = lvlDef.palette;
+    const g = lctx.createLinearGradient(0, 0, 0, 64);
+    g.addColorStop(0, lvl.bg[0]); g.addColorStop(1, lvl.bg[1]);
+    lctx.clearRect(0, 0, 64, 64);
+    lctx.fillStyle = g; lctx.fillRect(0, 0, 64, 64);
+    const scene=PLANET_SCENES[(lvlDef.index-1)%PLANET_SCENES.length];
+    lctx.fillStyle=scene.surface; lctx.beginPath(); lctx.moveTo(0,46); lctx.quadraticCurveTo(32,37,64,45); lctx.lineTo(64,64); lctx.lineTo(0,64); lctx.closePath(); lctx.fill();
+    lctx.strokeStyle=scene.light; lctx.globalAlpha=.8; lctx.beginPath(); lctx.moveTo(0,46); lctx.quadraticCurveTo(32,37,64,45); lctx.stroke(); lctx.globalAlpha=1;
+    // Keep level previews clean: no tiny decorative background dots.
+    lctx.shadowColor = lvl.glow; lctx.shadowBlur = 8;
+    lctx.fillStyle = lvl.gate;
+    lctx.fillRect(26, 0, 12, 20);
+    lctx.fillRect(26, 40, 12, 24);
+    startLevelNameEl.textContent = 'Level ' + lvlDef.index + ' — ' + scene.name;
+  }
+
+  // ---------- Neon skin studio rendering ----------
+  function renderShop() {
+    coinShopEl.textContent = coins;
+    skinsGrid.innerHTML = '';
+    const allSkins = SKINS.concat(MISSION_SKINS);
+    const chosen = allSkins.find(function(s){ return s.id === selectedSkin; }) || SKINS[0];
+    const featuredCtx = featuredSkinCanvas.getContext('2d');
+    featuredCtx.clearRect(0, 0, featuredSkinCanvas.width, featuredSkinCanvas.height);
+    const t = performance.now() / 1000;
+    const glow = featuredCtx.createRadialGradient(120,120,8,120,120,112);
+    glow.addColorStop(0,'rgba(113,71,255,.25)'); glow.addColorStop(1,'rgba(5,7,24,0)');
+    featuredCtx.fillStyle = glow; featuredCtx.fillRect(0,0,240,240);
+    drawCharacter(featuredCtx, chosen.id, 120, 120, 67, t);
+    featuredRarityEl.textContent = chosen.rarity || 'LEGENDARY';
+    featuredNameEl.textContent = chosen.name;
+    featuredDescEl.textContent = chosen.desc || ('Unlock this exclusive skin at Level ' + chosen.unlockLevel + '.');
+    featuredActionEl.textContent = unlockedSkins.indexOf(chosen.id) !== -1 ? (selectedSkin === chosen.id ? 'EQUIPPED ✓' : 'OWNED · TAP TO EQUIP') : (chosen.cost ? 'UNLOCK · ' + chosen.cost + ' GEMS' : 'UNLOCK AT LEVEL ' + chosen.unlockLevel);
+    featuredActionEl.disabled = false;
+    featuredActionEl.style.opacity = '1';
+    featuredActionEl.onclick = function(){
+      const owned = unlockedSkins.indexOf(chosen.id) !== -1;
+      if (owned) { selectedSkin = chosen.id; saveVal(KEYS.selSkin, chosen.id); updateStartPreview(); renderShop(); }
+      else if (chosen.cost != null && coins >= chosen.cost) {
+        coins -= chosen.cost; unlockedSkins.push(chosen.id); saveVal(KEYS.coins, coins); saveVal(KEYS.skins, unlockedSkins); saveVal(KEYS.selSkin, chosen.id); selectedSkin = chosen.id;
+        coinLiveEl.textContent = coins; coinStartEl.textContent = coins; updateStartPreview(); renderShop();
+      } else if (chosen.unlockLevel) { bounce(featuredActionEl); }
+      else { bounce(featuredActionEl); }
+    };
+    const visibleSkins = allSkins.filter(function(s){
+      const rarity = s.rarity || 'Legendary';
+      return activeSkinCategory === 'All' || rarity === activeSkinCategory;
+    });
+    skinCountEl.textContent = visibleSkins.length + ' SKINS';
+    visibleSkins.forEach(function (s) {
+      const owned = unlockedSkins.indexOf(s.id) !== -1;
+      const isSel = selectedSkin === s.id;
+      const rarity = s.rarity || 'Legendary';
+      const div = document.createElement('div');
+      div.className = 'shop-item' + (isSel ? ' selected' : '') + (rarity === 'Legendary' ? ' legendary' : '') + (!owned ? ' locked' : '');
+      const cvs = document.createElement('canvas'); cvs.width = 80; cvs.height = 80;
+      const cctx = cvs.getContext('2d'); drawCharacter(cctx, s.id, 40, 40, 26, t);
+      div.appendChild(cvs);
+      const nameDiv = document.createElement('div'); nameDiv.className = 'name'; nameDiv.textContent = s.name; div.appendChild(nameDiv);
+      const tag = document.createElement('div'); tag.className = 'rarity-tag ' + rarity.toLowerCase(); tag.textContent = rarity; div.appendChild(tag);
+      const statusDiv = document.createElement('div');
+      if (owned) { statusDiv.className = 'status'; statusDiv.style.color = isSel ? '#6ef29a' : '#9ba0c4'; statusDiv.textContent = isSel ? 'Equipped' : 'Owned'; }
+      else if (s.cost != null) { statusDiv.className = 'cost'; statusDiv.innerHTML = '<span class="gem-icon"></span>' + s.cost; }
+      else { statusDiv.className = 'status'; statusDiv.style.color = '#aeb5df'; statusDiv.textContent = 'Reach Lv ' + s.unlockLevel; }
+      div.appendChild(statusDiv);
+      div.addEventListener('click', function () {
+        if (owned) { selectedSkin = s.id; saveVal(KEYS.selSkin, s.id); updateStartPreview(); renderShop(); }
+        else if (s.cost != null && coins >= s.cost) {
+          coins -= s.cost; unlockedSkins.push(s.id); saveVal(KEYS.coins, coins); saveVal(KEYS.skins, unlockedSkins); selectedSkin = s.id; saveVal(KEYS.selSkin, s.id);
+          coinLiveEl.textContent = coins; coinStartEl.textContent = coins; updateStartPreview(); renderShop();
+        } else { bounce(div); }
+      });
+      skinsGrid.appendChild(div);
+    });
+  }
+
+  function renderBoosts() {
+    coinShopEl.textContent = coins;
+    boostsList.innerHTML = '';
+    Object.keys(BOOSTS).forEach(function (id) {
+      const b = BOOSTS[id];
+      const level = boostLevels[id];
+      const maxLevel = b.costs.length;
+      const maxed = level >= maxLevel;
+      const nextCost = maxed ? null : b.costs[level];
+
+      const row = document.createElement('div');
+      row.className = 'boost-row';
+
+      const top = document.createElement('div');
+      top.className = 'boost-row-top';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'boost-name'; nameEl.textContent = b.name;
+      const lvlEl = document.createElement('div');
+      lvlEl.className = 'boost-level'; lvlEl.textContent = 'Lv ' + level + '/' + maxLevel;
+      top.appendChild(nameEl); top.appendChild(lvlEl);
+      row.appendChild(top);
+
+      const descEl = document.createElement('div');
+      descEl.className = 'boost-desc'; descEl.textContent = b.desc;
+      row.appendChild(descEl);
+
+      const pips = document.createElement('div');
+      pips.className = 'boost-pips';
+      for (let i = 0; i < maxLevel; i++) {
+        const pip = document.createElement('div');
+        pip.className = 'boost-pip' + (i < level ? ' filled' : '');
+        pips.appendChild(pip);
+      }
+      row.appendChild(pips);
+
+      const btn = document.createElement('button');
+      btn.className = 'boost-btn';
+      if (maxed) {
+        btn.textContent = 'Maxed Out';
+        btn.disabled = true;
+      } else {
+        btn.innerHTML = 'Upgrade — <span class="gem-icon"></span> ' + nextCost;
+        btn.disabled = coins < nextCost;
+        btn.addEventListener('click', function () {
+          if (coins < nextCost) { bounce(row); return; }
+          coins -= nextCost;
+          boostLevels[id] = level + 1;
+          saveVal(KEYS.coins, coins);
+          saveVal(KEYS[b.key], boostLevels[id]);
+          coinLiveEl.textContent = coins; coinStartEl.textContent = coins;
+          renderBoosts();
+        });
+      }
+      row.appendChild(btn);
+      boostsList.appendChild(row);
+    });
+  }
+
+  function bounce(el) {
+    el.style.transition = 'transform 0.06s ease';
+    el.style.transform = 'translateX(-4px)';
+    setTimeout(function () { el.style.transform = 'translateX(4px)'; }, 60);
+    setTimeout(function () { el.style.transform = ''; }, 120);
+  }
+
+  document.querySelectorAll('.skin-category').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      activeSkinCategory = btn.dataset.category;
+      document.querySelectorAll('.skin-category').forEach(function(other){ other.classList.toggle('active', other === btn); });
+      renderShop();
+    });
+  });
+
+  function openShop() { tabSkins.classList.add('active'); tabBoosts.classList.remove('active'); skinStudio.classList.remove('hidden'); skinsGrid.classList.remove('hidden'); boostsList.classList.add('hidden'); renderShop(); renderBoosts(); shopScreen.classList.remove('hidden'); }
+  function closeShop() { shopScreen.classList.add('hidden'); }
+  shopBtnStart.addEventListener('click', openShop);
+  shopBtnEnd.addEventListener('click', openShop);
+  closeShopBtn.addEventListener('click', closeShop);
+  tabSkins.addEventListener('click', function () {
+    tabSkins.classList.add('active'); tabBoosts.classList.remove('active');
+    skinStudio.classList.remove('hidden'); skinsGrid.classList.remove('hidden'); boostsList.classList.add('hidden'); renderShop();
+  });
+  tabBoosts.addEventListener('click', function () {
+    tabBoosts.classList.add('active'); tabSkins.classList.remove('active');
+    skinStudio.classList.add('hidden'); boostsList.classList.remove('hidden');
+  });
+
+  function renderMissions() {
+    missionsList.innerHTML = '';
+    MISSIONS.forEach(function (m) {
+      const progress = missionProgressValue(m);
+      const done = progress >= m.target;
+      const claimed = claimedMissions.indexOf(m.id) !== -1;
+      const frac = Math.max(0, Math.min(1, progress / m.target));
+
+      const card = document.createElement('div');
+      card.className = 'mission-card';
+
+      const top = document.createElement('div');
+      top.className = 'mission-top';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'mission-name'; nameEl.textContent = m.name;
+      const tierEl = document.createElement('div');
+      tierEl.className = 'mission-tier';
+      tierEl.style.color = TIER_COLOR[m.tier];
+      tierEl.style.background = TIER_COLOR[m.tier] + '22';
+      tierEl.textContent = m.tier;
+      top.appendChild(nameEl); top.appendChild(tierEl);
+      card.appendChild(top);
+
+      const descEl = document.createElement('div');
+      descEl.className = 'mission-desc';
+      descEl.innerHTML = m.desc + ' — reward <span class="gem-icon"></span> ' + m.reward;
+      card.appendChild(descEl);
+
+      const bottom = document.createElement('div');
+      bottom.className = 'mission-bottom';
+      const barWrap = document.createElement('div');
+      barWrap.className = 'mission-bar-wrap';
+      const barFill = document.createElement('div');
+      barFill.className = 'mission-bar-fill';
+      barFill.style.width = (frac * 100) + '%';
+      barWrap.appendChild(barFill);
+      bottom.appendChild(barWrap);
+
+      if (claimed) {
+        const claimedBtn = document.createElement('button');
+        claimedBtn.className = 'mission-claim-btn claimed';
+        claimedBtn.textContent = 'Claimed';
+        claimedBtn.disabled = true;
+        bottom.appendChild(claimedBtn);
+      } else if (done) {
+        const claimBtn = document.createElement('button');
+        claimBtn.className = 'mission-claim-btn';
+        claimBtn.textContent = 'Claim';
+        claimBtn.addEventListener('click', function () {
+          coins += m.reward;
+          claimedMissions.push(m.id);
+          saveVal(KEYS.coins, coins);
+          saveVal(KEYS.claimedMissions, claimedMissions);
+          coinLiveEl.textContent = coins; coinStartEl.textContent = coins;
+          renderMissions();
+          updateMissionsBadge();
+        });
+        bottom.appendChild(claimBtn);
+      } else {
+        const progText = document.createElement('div');
+        progText.className = 'mission-progress-text';
+        progText.textContent = Math.min(progress, m.target) + '/' + m.target;
+        bottom.appendChild(progText);
+      }
+      card.appendChild(bottom);
+      missionsList.appendChild(card);
+    });
+  }
+
+  function updateMissionsBadge() {
+    const hasClaimable = MISSIONS.some(function (m) {
+      return missionProgressValue(m) >= m.target && claimedMissions.indexOf(m.id) === -1;
+    });
+    missionsBadge.classList.toggle('hidden', !hasClaimable);
+  }
+  updateMissionsBadge();
+
+  function openMissions() { renderMissions(); missionsScreen.classList.remove('hidden'); }
+  function closeMissions() { missionsScreen.classList.add('hidden'); }
+  missionsBtnStart.addEventListener('click', openMissions);
+  closeMissionsBtn.addEventListener('click', closeMissions);
+
+  // ---------- Canvas sizing ----------
+  let dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+  let W = 0, H = 0;
+  function resize() {
+    const rect = wrap.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Game state ----------
+  let running = false;
+  let player, obstacles, gems, particles, pulseRings, shards, score, sessionCoins;
+  let spawnTimer, gemSpawnTimer, elapsed, lastTime, gTime;
+  let currentPalette;
+  let currentLevelIndex = 1; // which of the 20 levels is being played right now
+
+  const BASE_SPAWN_INTERVAL = 1250;
+  const MIN_SPAWN_INTERVAL = 780;
+  const SPAWN_RAMP = 0.01;
+
+  const START_CROSS_TIME = 2.5;   // seconds to cross the screen at the start of a run
+  const MIN_CROSS_TIME = 1.35;    // fastest it ramps to
+  const CROSS_RAMP = 0.00001;     // how quickly cross time shrinks per ms elapsed
+  function baseSpeed() {
+    const crossTime = Math.max(MIN_CROSS_TIME, START_CROSS_TIME - elapsed * CROSS_RAMP);
+    return (W / crossTime) * getLevel(currentLevelIndex).speedMultiplier;
+  }
+
+  const GRAVITY_RATIO = 2.05;        // gravity as a multiple of H, per second^2
+  const JUMP_VELOCITY_RATIO = -0.62; // upward burst on tap, as a fraction of H per second (before boosts)
+
+  // ---------- Pulse Energy: the game's signature mechanic ----------
+  // Jump strength scales with a depleting/recharging energy meter instead of being constant.
+  // Gems refuel it; rare Overcharge gems fill it instantly and grant a brief shield.
+  // Energy never fully locks you out — it just makes your jump weaker when low — so you're
+  // always in control, but managing it (via gems) is the actual skill layer on top of dodging.
+  // PULSE_MAX and regen rate scale up with purchased boosts (see getPulseMax/getPulseRegen above).
+  const PULSE_COST_PER_TAP = 0.55;
+  const PULSE_GEM_REFILL = 0.8;
+  const SHIELD_DURATION = 2.2;
+
+  // ---------- Rocket boost: a rare pickup that lets you smash straight through obstacles ----------
+  const ROCKET_DURATION = 3.5;
+  const ROCKET_SPEED_MULTIPLIER = 1.9; // world rushes past this much faster while active
+  const ROCKET_SPAWN_CHANCE = 0.05;    // out of every gem-spawn roll
+  const OVERCHARGE_SPAWN_CHANCE = 0.14;
+
+  function initGame(levelIndex) {
+    currentLevelIndex = Math.min(TOTAL_LEVELS, Math.max(1, levelIndex || 1));
+    currentPalette = getLevel(currentLevelIndex).palette;
+    levelLiveEl.textContent = currentLevelIndex;
+    player = {
+      x: Math.max(60, W * 0.16),
+      y: H / 2,
+      vy: 0,
+      r: Math.min(24, Math.max(16, H * 0.075)),
+      skin: selectedSkin,
+      gravity: H * GRAVITY_RATIO,
+      jumpVel: H * JUMP_VELOCITY_RATIO * getJumpBoostMultiplier(),
+      pulse: getPulseMax(),
+      shieldTimer: 0,
+      rocketTimer: 0
+    };
+    pulseRings = [];
+    shards = [];
+    obstacles = [];
+    gems = [];
+    particles = [];
+    score = 0; sessionCoins = 0;
+    spawnTimer = 0; gemSpawnTimer = 0; elapsed = 0; lastTime = null; gTime = 0;
+    scoreLiveEl.textContent = '0/' + getLevel(currentLevelIndex).target;
+    coinLiveEl.textContent = coins;
+    // reseed the level's layout generator so this level plays out identically every time —
+    // same obstacle types, positions, gaps, and gems, in the same order, on every attempt.
+    seedLevelRandom(currentLevelIndex);
+  }
+
+  function rand(min, max) { return Math.random() * (max - min) + min; }
+
+  // ---------- Deterministic per-level layout generator ----------
+  // Everything that defines what a level actually looks like (which obstacle spawns, where
+  // gaps sit, gem positions, drift/spin parameters) is drawn from this seeded stream instead
+  // of Math.random(), and the stream is reset to the same seed every time a given level
+  // starts — so replaying Level N is always the same level, not a new random arrangement.
+  // Purely cosmetic effects (particle bursts, shard scatter, wind lines) still use
+  // Math.random() since they're reactive feedback tied to the player's own timing anyway.
+  let _levelRngState = 1;
+  function seedLevelRandom(levelIndex) {
+    // simple integer hash so consecutive level numbers don't produce correlated seeds
+    let h = (levelIndex + 1) * 2654435761;
+    h = (h ^ (h >>> 16)) >>> 0;
+    _levelRngState = h || 1;
+  }
+  function _levelRandRaw() {
+    // mulberry32
+    _levelRngState = (_levelRngState + 0x6D2B79F5) | 0;
+    let t = _levelRngState;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  function lrand(min, max) { return _levelRandRaw() * (max - min) + min; }
+  function lchance(p) { return _levelRandRaw() < p; }
+
+  // Barrier-break debris — small rotating rectangular slices that fall with gravity,
+  // used when the rocket boost smashes through a gate/spinner/orb instead of dying to it.
+  function spawnShards(cx, cy, color, count, spread) {
+    for (let i = 0; i < count; i++) {
+      const ang = rand(0, Math.PI * 2);
+      const dist = rand(0, spread);
+      shards.push({
+        x: cx + Math.cos(ang) * dist * 0.3, y: cy + Math.sin(ang) * dist * 0.3,
+        vx: rand(-110, 110), vy: rand(-160, -30),
+        rot: rand(0, Math.PI * 2), vrot: rand(-7, 7),
+        w: rand(6, 15), h: rand(4, 10),
+        color: color, life: 1
+      });
+    }
+  }
+
+  // Obstacles always start at the right edge — normally that's fine since the spawn timer
+  // gives enough time for one to scroll away before the next appears. But the "double spawn"
+  // difficulty burst can fire two in the very same instant, which would otherwise stack them
+  // exactly on top of each other (e.g. a spinner materializing inside a gate). This keeps any
+  // two obstacles still near the spawn edge from overlapping.
+  const MIN_OBSTACLE_GAP = 145;
+  function obstacleFootprint(o) {
+    if (o.type === 'gate') return o.width / 2;
+    if (o.type === 'spinner') return o.radius + o.thickness / 2;
+    if (o.type === 'orb') return o.r;
+    return 20;
+  }
+  function computeSpawnX(newFootprint) {
+    // Always place the next obstacle beyond the rightmost live obstacle plus
+    // both collision footprints and a generous safety gap.
+    let minX = W + 40;
+    for (let i = 0; i < obstacles.length; i++) {
+      const o = obstacles[i];
+      if (o.x < W - 30) continue; // already safely inside the playfield
+      const required = o.x + obstacleFootprint(o) + newFootprint + MIN_OBSTACLE_GAP;
+      minX = Math.max(minX, required);
+    }
+    return minX;
+  }
+
+  // Nearby already-placed gems this new obstacle must not strand. Gems are never moved once
+  // placed — instead, new obstacles are shaped/positioned to accommodate them, or (only if
+  // that's genuinely impossible) skipped for this spawn cycle.
+  const GEM_SAFETY_BUFFER = 260;
+  const GEM_SAFETY_MARGIN = 24;
+  function nearbyGems(x) {
+    const list = [];
+    for (let i = 0; i < gems.length; i++) {
+      if (Math.abs(gems[i].x - x) <= GEM_SAFETY_BUFFER) list.push(gems[i]);
+    }
+    return list;
+  }
+
+  function spawnObstacle() {
+    const lvl = getLevel(currentLevelIndex);
+    const diff = { gapHeightFactor: lvl.gapHeightFactor, driftChance: lvl.driftChance, spinnerSpeedBonus: lvl.spinnerSpeedBonus, orbSpeedBonus: lvl.orbSpeedBonus };
+    const speed = baseSpeed();
+
+    const roll = lrand(0, 1);
+    // Flybirds-style rhythm: barriers are the main challenge; special hazards
+    // remain in the mix but appear less often.
+    let type;
+    if (roll < 0.70) type = 'gate';
+    else if (roll < 0.90) type = 'spinner';
+    else type = 'orb';
+
+    if (type === 'gate') {
+      const gapHeight0 = Math.max(H * 0.26, H * 0.42 * diff.gapHeightFactor - elapsed / 1000 * 0.3);
+      const baseGapY0 = lrand(gapHeight0 / 2 + 16, H - gapHeight0 / 2 - 16);
+      const drift = lchance(diff.driftChance);
+      const width = lrand(Math.min(46, W * 0.05), Math.min(64, W * 0.075));
+      const spawnX = computeSpawnX(width / 2);
+
+      // if a gem is already sitting near where this gate will appear, grow the gap to
+      // include it (with margin) rather than ever moving the gem.
+      let gapTop = baseGapY0 - gapHeight0 / 2, gapBottom = baseGapY0 + gapHeight0 / 2;
+      if (!drift) {
+        const near = nearbyGems(spawnX);
+        for (let i = 0; i < near.length; i++) {
+          const g = near[i];
+          gapTop = Math.min(gapTop, g.y - GEM_SAFETY_MARGIN);
+          gapBottom = Math.max(gapBottom, g.y + GEM_SAFETY_MARGIN);
+        }
+        gapTop = Math.max(10, gapTop);
+        gapBottom = Math.min(H - 10, gapBottom);
+        if (gapTop >= gapBottom) return; // couldn't fit everyone safely — skip this spawn
+      }
+      const gapHeight = gapBottom - gapTop;
+      const baseGapY = (gapTop + gapBottom) / 2;
+
+      obstacles.push({
+        type: 'gate', x: spawnX, width: width,
+        gapHeight: gapHeight, baseGapY: baseGapY, drift: drift,
+        driftAmp: drift ? lrand(H * 0.06, H * 0.14) : 0, driftFreq: lrand(0.6, 1.1), driftPhase: lrand(0, Math.PI * 2),
+        speed: speed, passed: false, _gapTop: 0, _gapBottom: H
+      });
+    } else if (type === 'spinner') {
+      const spinBoost = diff.spinnerSpeedBonus;
+      const radius = Math.min(90, Math.max(55, H * 0.22));
+      const thickness = Math.min(16, Math.max(10, H * 0.03));
+      const spawnX = computeSpawnX(radius + thickness / 2);
+      const dangerR = radius + thickness / 2 + GEM_SAFETY_MARGIN;
+
+      let pivotY = lrand(H * 0.28, H * 0.72);
+      const near = nearbyGems(spawnX);
+      for (let i = 0; i < near.length; i++) {
+        const g = near[i];
+        if (Math.abs(pivotY - g.y) < dangerR + g.r) {
+          // try the two furthest-away candidate pivots and keep whichever clears every gem
+          const above = g.y - dangerR - g.r - 2;
+          const below = g.y + dangerR + g.r + 2;
+          const candidates = [Math.max(H * 0.22, above), Math.min(H * 0.78, below)];
+          let placed = false;
+          for (let c = 0; c < candidates.length; c++) {
+            const cand = candidates[c];
+            let ok = true;
+            for (let j = 0; j < near.length; j++) { if (Math.abs(cand - near[j].y) < dangerR + near[j].r) { ok = false; break; } }
+            if (ok) { pivotY = cand; placed = true; break; }
+          }
+          if (!placed) return; // no safe pivot clears every nearby gem — skip this spawn
+          break;
+        }
+      }
+
+      obstacles.push({
+        type: 'spinner', x: spawnX, pivotY: pivotY,
+        radius: radius, thickness: thickness,
+        angle: lrand(0, Math.PI * 2), spinSpeed: (lrand(3.2, 4.8) + spinBoost * 1.25) * (lchance(0.5) ? 1 : -1),
+        speed: speed * 0.96, passed: false
+      });
+    } else {
+      const orbBoost = diff.orbSpeedBonus;
+      const r = Math.min(30, Math.max(20, H * 0.06));
+      const spawnX = computeSpawnX(r);
+
+      let y = lrand(H * 0.25, H * 0.75);
+      const near = nearbyGems(spawnX);
+      for (let i = 0; i < near.length; i++) {
+        const g = near[i];
+        const dangerR = r + g.r + GEM_SAFETY_MARGIN;
+        if (Math.abs(y - g.y) < dangerR) {
+          const above = g.y - dangerR - 2, below = g.y + dangerR + 2;
+          const candidates = [Math.max(H * 0.22, above), Math.min(H * 0.78, below)];
+          let placed = false;
+          for (let c = 0; c < candidates.length; c++) {
+            const cand = candidates[c];
+            let ok = true;
+            for (let j = 0; j < near.length; j++) { const dr = r + near[j].r + GEM_SAFETY_MARGIN; if (Math.abs(cand - near[j].y) < dr) { ok = false; break; } }
+            if (ok) { y = cand; placed = true; break; }
+          }
+          if (!placed) return; // skip this spawn — can't clear every nearby gem
+          break;
+        }
+      }
+
+      obstacles.push({
+        type: 'orb', x: spawnX, y: y,
+        r: r, vy: (lrand(60, 130) + orbBoost) * (lchance(0.5) ? 1 : -1),
+        spin: 0, speed: speed * 0.94, passed: false
+      });
+    }
+  }
+
+  function spawnGem() {
+    const roll = rand(0, 1);
+    const isRocket = roll < ROCKET_SPAWN_CHANCE;
+    const overcharge = !isRocket && roll < ROCKET_SPAWN_CHANCE + OVERCHARGE_SPAWN_CHANCE;
+    const spawnX = W + 30;
+    const r = isRocket ? Math.min(24, Math.max(17, H * 0.046)) : (overcharge ? Math.min(22, Math.max(15, H * 0.042)) : Math.min(16, Math.max(11, H * 0.03)));
+
+    // find a position that's safe against every already-existing obstacle nearby — this is
+    // decided once, before the gem exists, so it never has to move after appearing.
+    let y = rand(H * 0.18, H * 0.82);
+    let safeTop = -Infinity, safeBottom = Infinity, foundGate = false, blockedByDrift = false;
+    const spinnerHazards = [];
+    for (let i = 0; i < obstacles.length; i++) {
+      const o = obstacles[i];
+      if (Math.abs(spawnX - o.x) > GEM_SAFETY_BUFFER) continue;
+      if (o.type === 'gate') {
+        foundGate = true;
+        if (o.drift) { blockedByDrift = true; break; }
+        safeTop = Math.max(safeTop, o.baseGapY - o.gapHeight / 2 + GEM_SAFETY_MARGIN);
+        safeBottom = Math.min(safeBottom, o.baseGapY + o.gapHeight / 2 - GEM_SAFETY_MARGIN);
+      } else if (o.type === 'spinner') {
+        spinnerHazards.push({ y: o.pivotY, r: o.radius + o.thickness / 2 + r + GEM_SAFETY_MARGIN });
+      } else if (o.type === 'orb') {
+        spinnerHazards.push({ y: o.y, r: o.r + r + GEM_SAFETY_MARGIN });
+      }
+    }
+    if (blockedByDrift || (foundGate && safeTop >= safeBottom)) return; // no safe spot — skip this gem
+    if (foundGate) y = Math.max(safeTop, Math.min(safeBottom, y));
+    for (let i = 0; i < spinnerHazards.length; i++) {
+      const hz = spinnerHazards[i];
+      if (Math.abs(y - hz.y) >= hz.r) continue;
+      const lo = foundGate ? safeTop : H * 0.08, hi = foundGate ? safeBottom : H * 0.92;
+      const above = Math.max(lo, hz.y - hz.r - 4), below = Math.min(hi, hz.y + hz.r + 4);
+      const aboveOk = above <= hz.y - hz.r + 0.01 && above >= lo;
+      const belowOk = below >= hz.y + hz.r - 0.01 && below <= hi;
+      if (aboveOk && belowOk) y = Math.abs(y - above) <= Math.abs(y - below) ? above : below;
+      else if (aboveOk) y = above;
+      else if (belowOk) y = below;
+      else return; // no safe spot clears this hazard — skip this gem
+    }
+
+    gems.push({
+      x: spawnX, y: y, r: r,
+      speed: baseSpeed() * 0.94,
+      overcharge: overcharge,
+      rocket: isRocket
+    });
+  }
+
+  function spawnParticles(x, y, color1, color2) {
+    for (let i = 0; i < 16; i++) {
+      const angle = rand(0, Math.PI * 2);
+      const speed = rand(60, 240);
+      particles.push({ x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 1, color: Math.random() < 0.5 ? color1 : color2 });
+    }
+  }
+
+  // ---------- Input (tap / click to jump) ----------
+  function jump() {
+    if (!running) return;
+    SoundFX.unlock();
+    const strength = 0.6 + 0.4 * (player.pulse / getPulseMax());
+    player.vy = player.jumpVel * strength;
+    SoundFX.jump(strength);
+    pulseRings.push({ x: player.x, y: player.y, r: player.r, life: 1, strength: strength });
+    if (player.pulse < PULSE_COST_PER_TAP * 0.6) {
+      for (let i = 0; i < 4; i++) particles.push({ x: player.x, y: player.y, vx: rand(-40, 40), vy: rand(-40, 40), life: 0.6, color: 'rgba(180,180,190,0.8)' });
+    }
+    player.pulse = Math.max(0, player.pulse - PULSE_COST_PER_TAP);
+  }
+
+  canvas.addEventListener('touchstart', function (e) { e.preventDefault(); jump(); }, { passive: false });
+  canvas.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('mousedown', function (e) { jump(); });
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
+  });
+
+  // ---------- Collision helpers ----------
+  function pointSegDist(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq ? ((px - x1) * dx + (py - y1) * dy) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const cx = x1 + t * dx, cy = y1 + t * dy;
+    return Math.hypot(px - cx, py - cy);
+  }
+
+  // ---------- Drawing ----------
+  function planetHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => { const c = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return Math.round(255 * c).toString(16).padStart(2, '0'); };
+    return '#' + f(0) + f(8) + f(4);
+  }
+  const PLANET_NAMES = [
+    'LUNAR REACH','MARS EMBER','EUROPA VEIL','TITAN DUNES','NEPTUNE DEEP','IO INFERNO','KEPLER PRISM','VENUS CLOUDS','ORION DRIFT','CRIMSON TIDE',
+    'FROSTBITE','AMBER SEA','AZURE RIFT','OBSIDIAN MOON','VIOLET WASTES','SOLARIS','GLACIER CROWN','COBALT HAVEN','RUBY HORIZON','ECHO CRATERS',
+    'SAPPHIRE DUST','PHANTOM ORBIT','GOLDEN DUSK','CYBER JUNGLE','NOVA FIELDS','DARK MATTER','OPAL STORM','EMBER VALLEY','QUARTZ WILDS','CELESTIAL SHORE',
+    'POLARIS','MIRAGE WORLD','THUNDER BASIN','LUMEN PRIME','CRYSTAL ABYSS','STARFORGE','INDIGO FRONTIER','JADE TEMPEST','RADIANT RIM','ECLIPSE COAST',
+    'PHOENIX ROCK','MOONGLASS','ELECTRA','SILVER CALDERA','NEBULA FALLS','VOID GARDEN','AURORA CANYON','PRISMATIC SEA','INFINITE DAWN','LAST LIGHT'
+  ];
+  // The environment archetype is selected from each level's actual terrain/motif,
+  // rather than looping through one generic planet template.
+  const GROUND_SCENE_KIND = {
+    mountains: 'alien-ridge', waves: 'oceanic', dunes: 'desert', lavarock: 'volcanic',
+    skyline: 'cyberpunk', cave: 'cavern', crystals: 'crystalline', vines: 'bioluminescent',
+    ice: 'glacial', ruins: 'ancient-ruins', none: 'nebula'
+  };
+  const MOTIF_SCENE_KIND = {
+    rays: 'solar-corona', meteors: 'meteor-belt', circuit: 'cyberpunk', grid: 'cyberpunk',
+    lasers: 'cyberpunk', orbits: 'ringed-world', portal: 'wormhole', spiral: 'galaxy',
+    chaos: 'singularity', bubbles: 'oceanic', snow: 'glacial', pollen: 'bioluminescent',
+    triangles: 'crystalline'
+  };
+  const PLANET_SCENES = PLANET_NAMES.map((name, i) => {
+    const meta = LEVEL_META[i] || [];
+    const ground = meta[4] || 'none';
+    const motif = meta[7] || 'stars';
+    const hue = (248 + i * GOLDEN_ANGLE) % 360;
+    const lightHue = (hue + (i % 2 ? 36 : 205)) % 360;
+    let kind = GROUND_SCENE_KIND[ground] || 'nebula';
+    // Strong signature motifs override ground type on selected stages, making those
+    // levels visually unmistakable even when their ground silhouette is similar.
+    if (MOTIF_SCENE_KIND[motif] && ['rays','meteors','circuit','grid','lasers','orbits','portal','spiral','chaos'].includes(motif)) {
+      kind = MOTIF_SCENE_KIND[motif];
+    } else if (ground === 'none' && MOTIF_SCENE_KIND[motif]) {
+      kind = MOTIF_SCENE_KIND[motif];
+    } else if (motif === 'embers' && ground !== 'lavarock') {
+      kind = 'nebula';
+    }
+    return {
+      name,
+      index: i,
+      hue,
+      sky: planetHex(hue, 72, 5 + (i % 4) * 2),
+      horizon: planetHex(lightHue, 86, 54 + (i % 4) * 4),
+      surface: planetHex(hue, 66, 11 + (i % 4) * 3),
+      light: planetHex(lightHue, 96, 70 + (i % 3) * 4),
+      accent: planetHex((hue + 125 + (i % 3) * 19) % 360, 82, 62),
+      deep: planetHex((hue + 305) % 360, 74, 5 + (i % 3)),
+      kind
+    };
+  });
+  // High-impact, hand-drawn cosmic environments. Details are vector shapes and broad
+  // gradients (not particle fields), so each level looks richer without adding lag.
+  function drawPlanetSurface(t) {
+    const scene = PLANET_SCENES[(currentLevelIndex - 1) % PLANET_SCENES.length];
+    const i = scene.index || 0;
+    const kind = scene.kind;
+    const horizon = H * (0.695 + (i % 4) * 0.012);
+
+    // Deep-space base: a dark vertical gradient with two broad nebula blooms.
+    const sky = ctx.createLinearGradient(0, 0, W * (i % 2 ? 0.75 : 0.25), H);
+    sky.addColorStop(0, scene.deep || scene.sky);
+    sky.addColorStop(0.48, scene.sky);
+    sky.addColorStop(1, '#02030b');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    const cloudA = ctx.createRadialGradient(W * (0.18 + (i % 5) * 0.14), H * 0.28, 0, W * (0.18 + (i % 5) * 0.14), H * 0.28, Math.max(W * 0.72, H * 0.48));
+    cloudA.addColorStop(0, scene.horizon + '27');
+    cloudA.addColorStop(0.42, scene.light + '12');
+    cloudA.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = cloudA;
+    ctx.fillRect(0, 0, W, H * 0.86);
+    const cloudB = ctx.createRadialGradient(W * (0.82 - (i % 3) * 0.16), H * 0.46, 0, W * (0.82 - (i % 3) * 0.16), H * 0.46, Math.max(W * 0.53, H * 0.31));
+    cloudB.addColorStop(0, scene.accent + '18');
+    cloudB.addColorStop(0.48, scene.horizon + '0c');
+    cloudB.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = cloudB;
+    ctx.fillRect(0, 0, W, H * 0.88);
+
+    // Wide nebula ribbons add scale and direction, with no tiny dot noise.
+    ctx.save();
+    ctx.globalAlpha = kind === 'singularity' ? 0.13 : 0.09;
+    ctx.strokeStyle = scene.light;
+    ctx.lineWidth = Math.max(7, W * 0.025);
+    ctx.beginPath();
+    ctx.moveTo(-W * 0.2, H * (0.34 + (i % 3) * 0.08));
+    ctx.bezierCurveTo(W * 0.2, H * 0.12, W * 0.52, H * 0.66, W * 1.22, H * 0.28);
+    ctx.stroke();
+    ctx.strokeStyle = scene.accent;
+    ctx.lineWidth = Math.max(3, W * 0.009);
+    ctx.beginPath();
+    ctx.moveTo(-W * 0.12, H * (0.48 - (i % 4) * 0.025));
+    ctx.bezierCurveTo(W * 0.33, H * 0.7, W * 0.7, H * 0.18, W * 1.12, H * 0.47);
+    ctx.stroke();
+    ctx.restore();
+
+    // One large world, moved and scaled per stage so silhouettes do not feel copy-pasted.
+    const xLayout = [0.79, 0.19, 0.68, 0.46, 0.95, 0.28, 0.74, 0.08, 0.57, 0.87];
+    const yLayout = [0.31, 0.29, 0.43, 0.23, 0.38, 0.49, 0.25, 0.36, 0.46, 0.2];
+    const px = W * xLayout[i % xLayout.length];
+    const py = H * yLayout[(i * 3) % yLayout.length];
+    let pr = Math.min(W * (0.29 + (i % 4) * 0.032), H * (0.205 + (i % 3) * 0.035));
+    if (kind === 'singularity' || kind === 'galaxy' || kind === 'nebula') pr *= 0.76;
+    if (kind === 'ringed-world' || kind === 'solar-corona') pr *= 0.93;
+
+    // Ring shadows are drawn behind the planet, with controlled alpha and no blur.
+    if (['ringed-world', 'gas-giant', 'oceanic'].includes(kind)) {
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(-0.24 + (i % 5) * 0.09);
+      ctx.strokeStyle = scene.light;
+      ctx.lineWidth = Math.max(4, pr * 0.065);
+      ctx.globalAlpha = 0.15;
+      ctx.beginPath(); ctx.ellipse(0, 0, pr * 1.55, pr * 0.38, 0, Math.PI, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = scene.accent;
+      ctx.lineWidth = Math.max(2, pr * 0.028);
+      ctx.globalAlpha = 0.42;
+      ctx.beginPath(); ctx.ellipse(0, 0, pr * 1.53, pr * 0.36, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw the world itself. The lighting is broad and atmospheric, not an expensive glow.
+    let body;
+    if (kind === 'singularity' || kind === 'solar-corona') {
+      body = ctx.createRadialGradient(px - pr * 0.26, py - pr * 0.31, pr * 0.02, px, py, pr * 1.12);
+      body.addColorStop(0, kind === 'singularity' ? '#05040f' : '#080a1e');
+      body.addColorStop(0.76, scene.deep || scene.sky);
+      body.addColorStop(0.94, scene.light + 'bb');
+      body.addColorStop(1, scene.accent + '04');
+    } else {
+      body = ctx.createRadialGradient(px - pr * 0.35, py - pr * 0.42, pr * 0.035, px, py, pr * 1.08);
+      body.addColorStop(0, scene.horizon);
+      body.addColorStop(0.52, scene.surface);
+      body.addColorStop(0.86, scene.deep || scene.sky);
+      body.addColorStop(1, scene.sky + '00');
+    }
+    ctx.save();
+    ctx.globalAlpha = kind === 'singularity' ? 0.82 : 0.53;
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Clean atmospheric edge around the featured world.
+    ctx.save();
+    ctx.globalAlpha = kind === 'solar-corona' || kind === 'singularity' ? 0.8 : 0.3;
+    ctx.strokeStyle = scene.light;
+    ctx.lineWidth = Math.max(1.4, pr * 0.014);
+    ctx.beginPath(); ctx.arc(px, py, pr * 0.985, -Math.PI * 0.9, Math.PI * 0.82); ctx.stroke();
+    ctx.restore();
+
+    // Planet-specific surface art, clipped to the sphere. Each design uses a handful
+    // of contours or facets rather than a dense field of animated particles.
+    ctx.save();
+    ctx.beginPath(); ctx.arc(px, py, pr * 0.975, 0, Math.PI * 2); ctx.clip();
+    if (kind === 'desert') {
+      for (let band = 0; band < 4; band++) {
+        ctx.globalAlpha = 0.12 + band * 0.025;
+        ctx.strokeStyle = band % 2 ? scene.accent : scene.light;
+        ctx.lineWidth = Math.max(3, pr * 0.045);
+        ctx.beginPath();
+        ctx.moveTo(px - pr, py - pr * 0.47 + band * pr * 0.24);
+        ctx.bezierCurveTo(px - pr * 0.35, py - pr * 0.8 + band * pr * 0.18, px + pr * 0.25, py - pr * 0.1 + band * pr * 0.2, px + pr, py - pr * 0.38 + band * pr * 0.25);
+        ctx.stroke();
+      }
+    } else if (kind === 'volcanic') {
+      for (let seam = 0; seam < 5; seam++) {
+        const sx = px - pr * 0.82 + seam * pr * 0.4;
+        ctx.globalAlpha = 0.38;
+        ctx.strokeStyle = scene.light;
+        ctx.lineWidth = Math.max(1.5, pr * 0.025);
+        ctx.beginPath(); ctx.moveTo(sx, py - pr * 0.5); ctx.lineTo(sx + pr * 0.07, py - pr * 0.12); ctx.lineTo(sx - pr * 0.1, py + pr * 0.12); ctx.lineTo(sx + pr * 0.02, py + pr * 0.54); ctx.stroke();
+        ctx.strokeStyle = scene.accent;
+        ctx.lineWidth = Math.max(1, pr * 0.009);
+        ctx.beginPath(); ctx.moveTo(sx + 2, py - pr * 0.35); ctx.lineTo(sx + pr * 0.08, py - pr * 0.08); ctx.lineTo(sx - pr * 0.07, py + pr * 0.13); ctx.stroke();
+      }
+    } else if (kind === 'glacial' || kind === 'crystalline') {
+      const facets = 7;
+      for (let f = 0; f < facets; f++) {
+        const x0 = px - pr + f * (pr * 2 / facets);
+        const top = py - pr * (0.56 + (f % 3) * 0.1);
+        ctx.globalAlpha = 0.13 + (f % 2) * 0.05;
+        ctx.fillStyle = f % 2 ? scene.light : scene.accent;
+        ctx.beginPath(); ctx.moveTo(x0, py + pr); ctx.lineTo(x0 + pr * 0.15, top); ctx.lineTo(x0 + pr * 0.44, py + pr * 0.12); ctx.lineTo(x0 + pr * 0.28, py + pr); ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = 0.34; ctx.strokeStyle = scene.light; ctx.lineWidth = Math.max(1, pr * 0.012);
+      for (let crack = 0; crack < 4; crack++) {
+        const sx = px - pr * 0.68 + crack * pr * 0.42;
+        ctx.beginPath(); ctx.moveTo(sx, py - pr * 0.55); ctx.lineTo(sx + pr * 0.08, py - pr * 0.1); ctx.lineTo(sx - pr * 0.03, py + pr * 0.18); ctx.lineTo(sx + pr * 0.14, py + pr * 0.57); ctx.stroke();
+      }
+    } else if (kind === 'oceanic') {
+      for (let wave = 0; wave < 6; wave++) {
+        ctx.globalAlpha = 0.13 + (wave % 2) * 0.06;
+        ctx.strokeStyle = wave % 2 ? scene.accent : scene.light;
+        ctx.lineWidth = Math.max(2, pr * 0.025);
+        ctx.beginPath();
+        ctx.ellipse(px - pr * 0.12, py + pr * (-0.46 + wave * 0.18), pr * (0.8 + (wave % 3) * 0.1), pr * 0.14, -0.16, 0.2, Math.PI * 1.72);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 0.13; ctx.fillStyle = scene.accent;
+      ctx.beginPath(); ctx.moveTo(px - pr * 0.9, py - pr * 0.1); ctx.lineTo(px - pr * 0.4, py - pr * 0.38); ctx.lineTo(px - pr * 0.18, py - pr * 0.08); ctx.lineTo(px - pr * 0.3, py + pr * 0.22); ctx.lineTo(px - pr * 0.72, py + pr * 0.3); ctx.closePath(); ctx.fill();
+    } else if (kind === 'gas-giant' || kind === 'ringed-world') {
+      for (let band = 0; band < 7; band++) {
+        ctx.globalAlpha = 0.14 + (band % 3) * 0.035;
+        ctx.fillStyle = band % 2 ? scene.light : scene.accent;
+        const yy = py - pr * 0.72 + band * pr * 0.22;
+        ctx.beginPath(); ctx.ellipse(px, yy, pr * 1.05, pr * (0.09 + (band % 2) * 0.025), 0.02 * (band % 3), 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 0.27; ctx.strokeStyle = scene.light; ctx.lineWidth = Math.max(1, pr * 0.014);
+      ctx.beginPath(); ctx.ellipse(px + pr * 0.22, py + pr * 0.04, pr * 0.19, pr * 0.09, -0.3, 0, Math.PI * 2); ctx.stroke();
+    } else if (kind === 'cyberpunk') {
+      ctx.globalAlpha = 0.22; ctx.strokeStyle = scene.light; ctx.lineWidth = Math.max(1, pr * 0.012);
+      for (let row = -2; row <= 2; row++) {
+        ctx.beginPath(); ctx.moveTo(px - pr, py + row * pr * 0.28); ctx.lineTo(px - pr * 0.25, py + row * pr * 0.28); ctx.lineTo(px - pr * 0.08, py + row * pr * 0.1); ctx.lineTo(px + pr, py + row * pr * 0.1); ctx.stroke();
+      }
+      ctx.globalAlpha = 0.22; ctx.strokeStyle = scene.accent; ctx.lineWidth = Math.max(1, pr * 0.02);
+      ctx.strokeRect(px - pr * 0.55, py - pr * 0.35, pr * 0.48, pr * 0.28);
+      ctx.strokeRect(px + pr * 0.12, py + pr * 0.1, pr * 0.38, pr * 0.34);
+    } else if (kind === 'bioluminescent') {
+      ctx.strokeStyle = scene.light; ctx.lineWidth = Math.max(1.3, pr * 0.014); ctx.globalAlpha = 0.3;
+      for (let stem = 0; stem < 5; stem++) {
+        const sx = px - pr * 0.65 + stem * pr * 0.31;
+        ctx.beginPath(); ctx.moveTo(sx, py + pr * 0.82); ctx.quadraticCurveTo(sx - pr * 0.12, py + pr * 0.12, sx + pr * 0.08, py - pr * 0.44); ctx.stroke();
+        for (let leaf = 0; leaf < 3; leaf++) {
+          const ly = py + pr * (0.42 - leaf * 0.3);
+          ctx.beginPath(); ctx.ellipse(sx + (leaf % 2 ? pr * 0.09 : -pr * 0.09), ly, pr * 0.13, pr * 0.045, leaf % 2 ? -0.65 : 0.65, 0, Math.PI * 2); ctx.fillStyle = scene.accent; ctx.fill();
+        }
+      }
+    } else if (kind === 'cavern' || kind === 'ancient-ruins' || kind === 'alien-ridge') {
+      // Continents / mountain ridges, plus large geological seams rather than dot texture.
+      ctx.globalAlpha = 0.18; ctx.fillStyle = scene.deep || '#02030b';
+      ctx.beginPath(); ctx.moveTo(px - pr, py + pr * 0.18); ctx.lineTo(px - pr * 0.63, py - pr * 0.02); ctx.lineTo(px - pr * 0.37, py + pr * 0.13); ctx.lineTo(px - pr * 0.08, py - pr * 0.2); ctx.lineTo(px + pr * 0.18, py + pr * 0.03); ctx.lineTo(px + pr * 0.45, py - pr * 0.08); ctx.lineTo(px + pr, py + pr * 0.22); ctx.lineTo(px + pr, py + pr); ctx.lineTo(px - pr, py + pr); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 0.24; ctx.strokeStyle = scene.light; ctx.lineWidth = Math.max(1.3, pr * 0.018);
+      ctx.beginPath(); ctx.moveTo(px - pr * 0.85, py - pr * 0.35); ctx.lineTo(px - pr * 0.49, py - pr * 0.14); ctx.lineTo(px - pr * 0.22, py - pr * 0.27); ctx.lineTo(px + pr * 0.1, py + pr * 0.02); ctx.lineTo(px + pr * 0.38, py - pr * 0.06); ctx.lineTo(px + pr * 0.72, py + pr * 0.17); ctx.stroke();
+    } else if (kind === 'solar-corona') {
+      ctx.globalAlpha = 0.45; ctx.strokeStyle = scene.accent; ctx.lineWidth = Math.max(2, pr * 0.045);
+      ctx.beginPath(); ctx.ellipse(px, py, pr * 1.2, pr * 0.92, -0.18, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.7; ctx.strokeStyle = scene.light; ctx.lineWidth = Math.max(1, pr * 0.012);
+      for (let ray = 0; ray < 8; ray++) {
+        const a = ray * Math.PI / 4 + i * 0.13;
+        ctx.beginPath(); ctx.moveTo(px + Math.cos(a) * pr * 1.03, py + Math.sin(a) * pr * 1.03); ctx.lineTo(px + Math.cos(a) * pr * (1.12 + (ray % 3) * 0.055), py + Math.sin(a) * pr * (1.12 + (ray % 3) * 0.055)); ctx.stroke();
+      }
+    } else if (kind === 'singularity' || kind === 'galaxy' || kind === 'nebula' || kind === 'wormhole') {
+      const cx = px + pr * (kind === 'singularity' ? 0.08 : -0.08), cy = py - pr * 0.02;
+      const count = kind === 'singularity' ? 5 : 4;
+      ctx.lineWidth = Math.max(2, pr * 0.035);
+      for (let arm = 0; arm < count; arm++) {
+        ctx.globalAlpha = 0.19 + arm * 0.025;
+        ctx.strokeStyle = arm % 2 ? scene.accent : scene.light;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, pr * (0.32 + arm * 0.16), pr * (0.12 + arm * 0.06), -0.38 + arm * 0.16, arm * 0.65, Math.PI * (1.4 + arm * 0.12));
+        ctx.stroke();
+      }
+      if (kind === 'singularity' || kind === 'wormhole') {
+        ctx.globalAlpha = 0.78; ctx.strokeStyle = scene.light; ctx.lineWidth = Math.max(2, pr * 0.025);
+        ctx.beginPath(); ctx.ellipse(cx, cy, pr * 0.42, pr * 0.2, -0.36, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#02020b'; ctx.beginPath(); ctx.arc(cx, cy, pr * 0.16, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (kind === 'meteor-belt') {
+      ctx.globalAlpha = 0.28; ctx.strokeStyle = scene.light; ctx.lineWidth = Math.max(1.3, pr * 0.014);
+      ctx.beginPath(); ctx.ellipse(px, py, pr * 1.05, pr * 0.55, -0.36, 0.05, Math.PI * 1.95); ctx.stroke();
+      for (let rock = 0; rock < 7; rock++) {
+        const a = -0.5 + rock * 0.31;
+        const rx = px + Math.cos(a) * pr * 1.03;
+        const ry = py + Math.sin(a) * pr * 0.52;
+        const size = pr * (0.035 + (rock % 3) * 0.018);
+        ctx.globalAlpha = 0.33; ctx.fillStyle = rock % 2 ? scene.accent : scene.light;
+        ctx.beginPath(); ctx.moveTo(rx - size, ry - size * 0.3); ctx.lineTo(rx - size * 0.2, ry - size); ctx.lineTo(rx + size, ry - size * 0.1); ctx.lineTo(rx + size * 0.2, ry + size); ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.restore();
+
+    // The ring crosses in front of the lower hemisphere, giving ringed worlds depth.
+    if (['ringed-world', 'gas-giant'].includes(kind)) {
+      ctx.save(); ctx.translate(px, py); ctx.rotate(-0.24 + (i % 5) * 0.09);
+      ctx.globalAlpha = 0.3; ctx.strokeStyle = scene.light; ctx.lineWidth = Math.max(2, pr * 0.045);
+      ctx.beginPath(); ctx.ellipse(0, 0, pr * 1.5, pr * 0.34, 0, 0.06, Math.PI - 0.05); ctx.stroke();
+      ctx.globalAlpha = 0.22; ctx.strokeStyle = scene.accent; ctx.lineWidth = Math.max(1, pr * 0.016);
+      ctx.beginPath(); ctx.ellipse(0, 0, pr * 1.62, pr * 0.38, 0, 0.05, Math.PI - 0.05); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Distinct secondary moon / celestial object. Large shapes, sparse by design.
+    if (i % 3 !== 1 && !['singularity','galaxy','wormhole'].includes(kind)) {
+      const mx = W * (i % 2 ? 0.84 : 0.19);
+      const my = H * (0.12 + (i % 4) * 0.045);
+      const mr = Math.min(W * (0.07 + (i % 3) * 0.018), H * 0.075);
+      const moonGrad = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.33, 1, mx, my, mr);
+      moonGrad.addColorStop(0, scene.light + 'dd');
+      moonGrad.addColorStop(0.55, scene.horizon + '99');
+      moonGrad.addColorStop(1, scene.deep || scene.sky);
+      ctx.globalAlpha = 0.66; ctx.fillStyle = moonGrad;
+      ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.24; ctx.strokeStyle = scene.light; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(mx, my, mr * 0.98, -2.2, 1.05); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Three restrained star glints (not a noisy sprinkle of tiny dots).
+    for (let star = 0; star < 3; star++) {
+      const sx = W * (((i * 0.173 + star * 0.37 + 0.13) % 0.9) + 0.05);
+      const sy = H * (0.1 + ((i * 0.11 + star * 0.23) % 0.4));
+      const sz = Math.max(2.5, Math.min(W, H) * (0.006 + (star % 2) * 0.002));
+      ctx.save(); ctx.globalAlpha = 0.45 + 0.2 * Math.sin(t * 1.2 + star + i);
+      ctx.strokeStyle = star === 1 ? scene.accent : '#dcecff'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(sx - sz, sy); ctx.lineTo(sx + sz, sy); ctx.moveTo(sx, sy - sz * 1.7); ctx.lineTo(sx, sy + sz * 1.7); ctx.stroke();
+      ctx.restore();
+    }
+
+    // A layered alien horizon with a bright atmospheric rim and slower, subtle movement.
+    const rimY = horizon + Math.sin(t * 0.13 + i) * H * 0.005;
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = scene.deep || scene.sky;
+    ctx.beginPath(); ctx.moveTo(0, rimY + H * 0.055);
+    for (let x = 0; x <= W + 8; x += 8) {
+      const yy = rimY + H * 0.055 + Math.sin(x * 0.006 + i) * H * 0.027 + Math.sin(x * 0.014 + i * 0.7) * H * 0.012;
+      ctx.lineTo(x, yy);
+    }
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 0.74; ctx.strokeStyle = scene.light; ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    for (let x = 0; x <= W + 8; x += 8) {
+      const yy = rimY + Math.sin(x * 0.006 + i) * H * 0.027 + Math.sin(x * 0.014 + i * 0.7) * H * 0.012;
+      if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+
+    // Kind-specific distant skyline/terrain shapes between the planet and ground layer.
+    if (kind === 'crystalline' || kind === 'glacial') {
+      ctx.globalAlpha = 0.14; ctx.fillStyle = scene.accent;
+      for (let crystal = 0; crystal < 7; crystal++) {
+        const x = W * crystal / 6;
+        const tip = rimY - H * (0.035 + (crystal % 4) * 0.018);
+        ctx.beginPath(); ctx.moveTo(x - W * 0.035, rimY + H * 0.06); ctx.lineTo(x, tip); ctx.lineTo(x + W * 0.028, rimY + H * 0.07); ctx.closePath(); ctx.fill();
+      }
+    } else if (kind === 'alien-ridge' || kind === 'volcanic' || kind === 'ancient-ruins') {
+      ctx.globalAlpha = 0.26; ctx.fillStyle = scene.deep || '#02030b';
+      ctx.beginPath(); ctx.moveTo(0, rimY + H * 0.09);
+      for (let peak = 0; peak <= 8; peak++) {
+        const x = W * peak / 8;
+        const y = rimY + H * (0.02 + ((peak * 7 + i) % 4) * 0.022);
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+      if (kind === 'volcanic') {
+        ctx.globalAlpha = 0.34; ctx.strokeStyle = scene.accent; ctx.lineWidth = Math.max(1.5, W * 0.004);
+        for (let fissure = 0; fissure < 4; fissure++) {
+          const x = W * (0.12 + fissure * 0.23);
+          ctx.beginPath(); ctx.moveTo(x, rimY + H * 0.05); ctx.lineTo(x + W * 0.02, rimY + H * 0.11); ctx.lineTo(x - W * 0.01, rimY + H * 0.18); ctx.stroke();
+        }
+      }
+    } else if (kind === 'cyberpunk') {
+      ctx.globalAlpha = 0.22; ctx.fillStyle = scene.deep || '#02030b';
+      for (let tower = 0; tower < 9; tower++) {
+        const x = W * tower / 8;
+        const th = H * (0.035 + ((tower * 5 + i) % 5) * 0.016);
+        ctx.fillRect(x - W * 0.018, rimY + H * 0.04 - th, W * 0.036, th + H * 0.07);
+        ctx.fillStyle = scene.accent; ctx.fillRect(x - W * 0.008, rimY + H * 0.045 - th * 0.75, W * 0.005, th * 0.4);
+        ctx.fillStyle = scene.deep || '#02030b';
+      }
+    } else if (kind === 'oceanic') {
+      ctx.globalAlpha = 0.24; ctx.strokeStyle = scene.accent; ctx.lineWidth = 2;
+      for (let wave = 0; wave < 3; wave++) {
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 12) {
+          const yy = rimY + H * (0.07 + wave * 0.035) + Math.sin(x * 0.012 + t * (0.13 + wave * 0.025)) * H * 0.012;
+          if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+        }
+        ctx.stroke();
+      }
+    } else if (kind === 'bioluminescent') {
+      ctx.globalAlpha = 0.18; ctx.strokeStyle = scene.accent; ctx.lineWidth = 2;
+      for (let vine = 0; vine < 5; vine++) {
+        const x = W * (0.08 + vine * 0.21);
+        ctx.beginPath(); ctx.moveTo(x, rimY + H * 0.14); ctx.quadraticCurveTo(x - W * 0.03, rimY + H * 0.06, x + W * 0.015, rimY + H * 0.025); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  // Render the detailed background once per level/size. The gameplay canvas then
+  // blits this pre-rendered scene every frame instead of rebuilding many gradients,
+  // arcs and terrain paths on every animation tick (important on mobile devices).
+  let backgroundCache = document.createElement('canvas');
+  let backgroundCacheCtx = backgroundCache.getContext('2d');
+  let backgroundCacheKey = '';
+  function rebuildBackgroundCache() {
+    const safeW = Math.max(1, Math.ceil(W));
+    const safeH = Math.max(1, Math.ceil(H));
+    backgroundCache.width = Math.max(1, Math.ceil(W * dpr));
+    backgroundCache.height = Math.max(1, Math.ceil(H * dpr));
+    backgroundCacheCtx = backgroundCache.getContext('2d');
+    backgroundCacheCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const mainCtx = ctx;
+    ctx = backgroundCacheCtx;
+    ctx.clearRect(0, 0, safeW, safeH);
+    const lvl = getLevel(currentLevelIndex);
+    let grad;
+    if (lvl.bgShape === 'diagonal') {
+      grad = ctx.createLinearGradient(0, 0, W, H);
+    } else if (lvl.bgShape === 'radial') {
+      grad = ctx.createRadialGradient(W * 0.5, H * 0.5, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
+    } else {
+      grad = ctx.createLinearGradient(0, 0, 0, H);
+    }
+    grad.addColorStop(0, currentPalette.bg[0]); grad.addColorStop(1, currentPalette.bg[1]);
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+    drawPlanetSurface(0);
+    drawGround(lvl.groundStyle, currentPalette, 0);
+    ctx = mainCtx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    backgroundCacheKey = [Math.ceil(W), Math.ceil(H), dpr, currentLevelIndex].join(':');
+  }
+  function drawBackground() {
+    const key = [Math.ceil(W), Math.ceil(H), dpr, currentLevelIndex].join(':');
+    if (!backgroundCacheKey || key !== backgroundCacheKey) rebuildBackgroundCache();
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(backgroundCache, 0, 0, W, H);
+  }
+
+  function drawMotif(motif, palette, t) {
+    const spacing = 90;
+    const offset = (t * 40) % spacing;
+    if (motif === 'stars') {
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      for (let x = W + spacing - offset; x > -spacing; x -= spacing) {
+        for (let y = 30; y < H; y += 70) {
+          ctx.beginPath(); ctx.arc(x, y, 1.6, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    } else if (motif === 'bubbles') {
+      ctx.strokeStyle = palette.glow;
+      ctx.lineWidth = 1.2;
+      const sp = 110;
+      const off = (t * 30) % sp;
+      let row = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 40; y < H; y += 85) {
+          const bob = Math.sin(t * 1.5 + row) * 8;
+          const rad = 4 + (row % 3) * 2.5;
+          ctx.globalAlpha = 0.35;
+          ctx.beginPath(); ctx.arc(x, y + bob, rad, 0, Math.PI * 2); ctx.stroke();
+          row++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'embers') {
+      ctx.fillStyle = palette.orb;
+      const sp = 70;
+      const off = (t * 55) % sp;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 20; y < H; y += 60) {
+          const flick = (Math.sin(t * 3 + i) + 1) / 2;
+          ctx.globalAlpha = 0.15 + flick * 0.25;
+          ctx.beginPath(); ctx.arc(x, y - flick * 10, 2 + flick * 1.5, 0, Math.PI * 2); ctx.fill();
+          i++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'snow') {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      const sp = 60;
+      const off = (t * 35) % sp;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 20; y < H; y += 50) {
+          const drift = Math.sin(t * 1.2 + i) * 6;
+          ctx.globalAlpha = 0.4;
+          ctx.beginPath(); ctx.arc(x + drift, y, 1.8, 0, Math.PI * 2); ctx.fill();
+          i++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'grid') {
+      ctx.strokeStyle = palette.glow;
+      ctx.globalAlpha = 0.25;
+      ctx.lineWidth = 1;
+      const sp = 64;
+      const off = (t * 60) % sp;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      for (let y = 0; y < H; y += sp) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'rays') {
+      const cx = W * 0.5, cy = H * 0.5;
+      const count = 10;
+      ctx.strokeStyle = palette.glow;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < count; i++) {
+        const ang = (i / count) * Math.PI * 2 + t * 0.2;
+        ctx.globalAlpha = 0.12;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(ang) * W, cy + Math.sin(ang) * W);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'hexagons') {
+      const sp = 100;
+      const off = (t * 25) % sp;
+      ctx.strokeStyle = palette.accent;
+      ctx.lineWidth = 1.3;
+      let row = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 40; y < H; y += 90) {
+          const rad = 16;
+          const rot = t * 0.3 + row;
+          ctx.globalAlpha = 0.18;
+          ctx.beginPath();
+          for (let k = 0; k < 6; k++) {
+            const ang = rot + (k / 6) * Math.PI * 2;
+            const px = x + Math.cos(ang) * rad, py = y + Math.sin(ang) * rad;
+            if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.closePath(); ctx.stroke();
+          row++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'lasers') {
+      const sp = 130;
+      const off = (t * 90) % sp;
+      ctx.fillStyle = palette.accent;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        const flick = (Math.sin(t * 6 + i) + 1) / 2;
+        ctx.globalAlpha = 0.08 + flick * 0.12;
+        ctx.fillRect(x, 0, 2.5, H);
+        i++;
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'triangles') {
+      const sp = 80;
+      const off = (t * 45) % sp;
+      ctx.fillStyle = palette.orb;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 30; y < H; y += 75) {
+          const rot = t * 0.8 + i;
+          const s = 6;
+          ctx.globalAlpha = 0.2;
+          ctx.save();
+          ctx.translate(x, y); ctx.rotate(rot);
+          ctx.beginPath();
+          ctx.moveTo(0, -s); ctx.lineTo(s * 0.87, s * 0.5); ctx.lineTo(-s * 0.87, s * 0.5);
+          ctx.closePath(); ctx.fill();
+          ctx.restore();
+          i++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'clouds') {
+      const sp = 160;
+      const off = (t * 18) % sp;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 60; y < H; y += 140) {
+          const rad = 45 + (i % 3) * 15;
+          const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+          g.addColorStop(0, palette.glow);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.globalAlpha = 0.25;
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+          i++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'spiral') {
+      const cx = W * 0.5, cy = H * 0.5;
+      ctx.fillStyle = palette.accent;
+      const count = 40;
+      for (let i = 0; i < count; i++) {
+        const a = i * 0.5 + t * 1.2;
+        const r = i * 4.5;
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r * 0.6;
+        if (x < -10 || x > W + 10 || y < -10 || y > H + 10) continue;
+        ctx.globalAlpha = 0.1 + (i / count) * 0.15;
+        ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'diagonal') {
+      const sp = 70;
+      const off = (t * 70) % sp;
+      ctx.strokeStyle = palette.glow;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.14;
+      for (let x = W + sp * 2 - off; x > -H; x -= sp) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x - H, H); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'circuit') {
+      const sp = 70;
+      const off = (t * 35) % sp;
+      ctx.strokeStyle = palette.accent;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.2;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      ctx.fillStyle = palette.accent;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 30; y < H; y += 60) {
+          ctx.globalAlpha = 0.3;
+          ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
+          i++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'orbits') {
+      const sp = 130;
+      const off = (t * 22) % sp;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 50; y < H; y += 120) {
+          ctx.strokeStyle = palette.glow;
+          ctx.globalAlpha = 0.2;
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.stroke();
+          const ang = t * 1.5 + i;
+          ctx.fillStyle = palette.accent;
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath(); ctx.arc(x + Math.cos(ang) * 18, y + Math.sin(ang) * 18, 2.5, 0, Math.PI * 2); ctx.fill();
+          i++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'confetti') {
+      const sp = 65;
+      const off = (t * 50) % sp;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 25; y < H; y += 55) {
+          const rot = t * 2 + i;
+          ctx.fillStyle = (i % 2 === 0) ? palette.gate : palette.orb;
+          ctx.globalAlpha = 0.25;
+          ctx.save();
+          ctx.translate(x, y); ctx.rotate(rot);
+          ctx.fillRect(-3, -3, 6, 6);
+          ctx.restore();
+          i++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'waves') {
+      ctx.strokeStyle = palette.glow;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.25;
+      const rows = 6;
+      for (let r = 0; r < rows; r++) {
+        const y0 = (r + 0.5) * (H / rows);
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 12) {
+          const y = y0 + Math.sin((x * 0.02) + t * 2 + r) * 10;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'portal') {
+      const cx = W * 0.82, cy = H * 0.5;
+      const rings = 5;
+      ctx.strokeStyle = palette.accent;
+      for (let i = 0; i < rings; i++) {
+        const phase = (t * 0.4 + i / rings) % 1;
+        const rad = phase * Math.max(W, H) * 0.7;
+        ctx.globalAlpha = (1 - phase) * 0.3;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'meteors') {
+      const sp = 120;
+      const off = (t * 160) % sp;
+      ctx.strokeStyle = palette.accent;
+      ctx.lineWidth = 2;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        const y = ((i * 137) % H);
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 26, y - 14);
+        ctx.stroke();
+        i++;
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'pollen') {
+      const sp = 55;
+      const off = (t * 20) % sp;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 20; y < H; y += 48) {
+          const bob = Math.sin(t * 1.4 + i) * 10;
+          const g = ctx.createRadialGradient(x, y + bob, 0, x, y + bob, 5);
+          g.addColorStop(0, palette.glow);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath(); ctx.arc(x, y + bob, 5, 0, Math.PI * 2); ctx.fill();
+          i++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    } else if (motif === 'chaos') {
+      drawMotif('stars', palette, t);
+      drawMotif('embers', palette, t * 1.3);
+      drawMotif('grid', palette, t * 0.6);
+    } else if (motif === 'dust') {
+      const sp = 50;
+      const off = (t * 65) % sp;
+      ctx.fillStyle = palette.accent;
+      let i = 0;
+      for (let x = W + sp - off; x > -sp; x -= sp) {
+        for (let y = 15; y < H; y += 40) {
+          const drift = Math.sin(t * 0.8 + i) * 14;
+          ctx.globalAlpha = 0.14;
+          ctx.beginPath(); ctx.arc(x + drift, y, 1.4, 0, Math.PI * 2); ctx.fill();
+          i++;
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Ground/horizon scenery — the thing that makes a level look like an actual PLACE
+  // (mountains, ocean, desert, city, cave...) instead of just a tinted particle field.
+  function drawGround(style, palette, t) {
+    if (!style || style === 'none') return;
+    const spacing = 150;
+    const off = (t * 22) % spacing;
+    ctx.save();
+    if (style === 'mountains') {
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        const peakH = H * 0.17;
+        ctx.beginPath();
+        ctx.moveTo(x - spacing * 0.55, H);
+        ctx.lineTo(x, H - peakH);
+        ctx.lineTo(x + spacing * 0.55, H);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        ctx.beginPath();
+        ctx.moveTo(x - 10, H - H * 0.14);
+        ctx.lineTo(x, H - H * 0.17);
+        ctx.lineTo(x + 10, H - H * 0.14);
+        ctx.closePath(); ctx.fill();
+      }
+    } else if (style === 'waves') {
+      ctx.strokeStyle = palette.glow;
+      ctx.lineWidth = 2;
+      for (let row = 0; row < 3; row++) {
+        const waveY = H - 14 - row * 12;
+        ctx.globalAlpha = 0.4 - row * 0.1;
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 10) {
+          const y = waveY + Math.sin(x * 0.03 + t * 2 + row) * 6;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    } else if (style === 'dunes') {
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        ctx.beginPath();
+        ctx.ellipse(x, H + 25, spacing * 0.65, 42, 0, Math.PI, 0, true);
+        ctx.fill();
+      }
+    } else if (style === 'lavarock') {
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        ctx.beginPath();
+        ctx.moveTo(x - spacing * 0.5, H);
+        ctx.lineTo(x - 18, H - 34);
+        ctx.lineTo(x + 12, H - 12);
+        ctx.lineTo(x + spacing * 0.5, H);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.strokeStyle = palette.orb;
+      ctx.lineWidth = 1.4;
+      ctx.globalAlpha = 0.5;
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        ctx.beginPath(); ctx.moveTo(x - 10, H); ctx.lineTo(x, H - 22); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    } else if (style === 'skyline') {
+      let i = 0;
+      for (let x = W + spacing - off; x > -spacing; x -= spacing * 0.55) {
+        const bh = 46 + ((i * 53) % 90);
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(x - 20, H - bh, 40, bh);
+        ctx.fillStyle = palette.accent;
+        ctx.globalAlpha = 0.5;
+        for (let wy = H - bh + 10; wy < H - 8; wy += 14) {
+          ctx.fillRect(x - 12, wy, 5, 5);
+          ctx.fillRect(x + 2, wy, 5, 5);
+        }
+        ctx.globalAlpha = 1;
+        i++;
+      }
+    } else if (style === 'cave') {
+      ctx.fillStyle = 'rgba(0,0,0,0.65)';
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        ctx.beginPath(); ctx.moveTo(x - 16, 0); ctx.lineTo(x, 55); ctx.lineTo(x + 16, 0); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x - 18, H); ctx.lineTo(x, H - 48); ctx.lineTo(x + 18, H); ctx.closePath(); ctx.fill();
+      }
+    } else if (style === 'crystals') {
+      ctx.fillStyle = palette.glow;
+      ctx.globalAlpha = 0.35;
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        ctx.beginPath(); ctx.moveTo(x - 11, H); ctx.lineTo(x, H - 65); ctx.lineTo(x + 11, H); ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    } else if (style === 'vines') {
+      ctx.strokeStyle = 'rgba(20,55,30,0.6)';
+      ctx.lineWidth = 3;
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.quadraticCurveTo(x + 22, 65, x - 12, 140);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(30,80,40,0.6)';
+        ctx.beginPath(); ctx.arc(x - 12, 140, 5, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (style === 'ice') {
+      ctx.fillStyle = 'rgba(210,235,255,0.18)';
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        ctx.beginPath();
+        ctx.moveTo(x - 17, H); ctx.lineTo(x - 4, H - 42); ctx.lineTo(x + 9, H - 16); ctx.lineTo(x + 18, H);
+        ctx.closePath(); ctx.fill();
+      }
+    } else if (style === 'ruins') {
+      ctx.fillStyle = 'rgba(35,30,26,0.6)';
+      let i = 0;
+      for (let x = W + spacing - off; x > -spacing; x -= spacing) {
+        const h = 28 + ((i % 3) * 22);
+        ctx.fillRect(x - 9, H - h, 18, h);
+        i++;
+      }
+    }
+    ctx.restore();
+  }
+
+  // ---------- Loop ----------
+  function loop(ts) {
+    if (!running) return;
+    if (lastTime === null) lastTime = ts;
+    const dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+    elapsed += dt * 1000;
+    gTime += dt;
+
+    const spawnInterval = Math.max(MIN_SPAWN_INTERVAL, BASE_SPAWN_INTERVAL - elapsed * SPAWN_RAMP);
+    spawnTimer += dt * 1000;
+    if (spawnTimer >= spawnInterval) {
+      spawnTimer = 0;
+      spawnObstacle();
+    }
+    gemSpawnTimer += dt * 1000;
+    if (gemSpawnTimer >= 1500) {
+      gemSpawnTimer = 0;
+      if (lchance(0.75)) spawnGem();
+    }
+
+    // Rocket mode pilots the orb automatically: no taps are needed while the rocket is active.
+    // It smoothly steers the player through a gentle flight path around the center of the screen.
+    const rocketWasActive = player.rocketTimer > 0;
+    if (rocketWasActive) {
+      const flightTargetY = H * (0.50 + Math.sin(gTime * 2.15) * 0.16);
+      const desiredVy = (flightTargetY - player.y) * 3.6;
+      player.vy += (desiredVy - player.vy) * Math.min(1, dt * 5.5);
+      player.y += player.vy * dt;
+    } else {
+      player.vy += player.gravity * dt;
+      player.y += player.vy * dt;
+    }
+    player.pulse = Math.min(getPulseMax(), player.pulse + getPulseRegen() * dt);
+    if (player.shieldTimer > 0) player.shieldTimer = Math.max(0, player.shieldTimer - dt);
+    if (player.rocketTimer > 0) player.rocketTimer = Math.max(0, player.rocketTimer - dt);
+
+    let dead = false;
+    let levelComplete = false;
+
+    if (player.y - player.r <= 0) {
+      player.y = player.r;
+      player.vy = 0;
+    } else if (player.y + player.r >= H) {
+      player.y = H - player.r;
+      if (player.shieldTimer > 0 || player.rocketTimer > 0) { player.vy = player.jumpVel * 0.5; } else { dead = true; }
+    }
+
+    const hitR = player.r * 0.55;
+    const lvl = getLevel(currentLevelIndex);
+    const shielded = player.shieldTimer > 0;
+    const rocketActive = player.rocketTimer > 0;
+    const worldSpeedMul = rocketActive ? ROCKET_SPEED_MULTIPLIER : 1;
+
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const o = obstacles[i];
+      o.x -= o.speed * worldSpeedMul * dt;
+
+      if (o.type === 'gate') {
+        const gapY = o.baseGapY + (o.drift ? Math.sin(gTime * o.driftFreq + o.driftPhase) * o.driftAmp : 0);
+        o._gapTop = Math.max(10, gapY - o.gapHeight / 2);
+        o._gapBottom = Math.min(H - 10, gapY + o.gapHeight / 2);
+        const left = o.x - o.width / 2, right = o.x + o.width / 2;
+        const hits = (player.x + hitR > left && player.x - hitR < right) &&
+          (player.y - hitR < o._gapTop || player.y + hitR > o._gapBottom);
+        if (hits) {
+          if (rocketActive) {
+            spawnShards(Math.max(left, Math.min(right, player.x)), player.y, currentPalette.gate, 11, o.width * 0.6);
+            obstacles.splice(i, 1);
+            if (!o.passed) { score++; scoreLiveEl.textContent = score + '/' + lvl.target; if (score >= lvl.target) { levelComplete = true; break; } }
+            continue;
+          } else if (!shielded) { dead = true; break; }
+        }
+        if (!o.passed && right < player.x - hitR) { o.passed = true; score++; scoreLiveEl.textContent = score + '/' + lvl.target; if (score >= lvl.target) { levelComplete = true; break; } }
+        if (right < -60) obstacles.splice(i, 1);
+      } else if (o.type === 'spinner') {
+        o.angle += o.spinSpeed * dt;
+        let bladeDist = Infinity;
+        for (let blade = 0; blade < 4; blade++) {
+          const a = o.angle + blade * Math.PI / 2;
+          const p1x = o.x + Math.cos(a) * o.radius, p1y = o.pivotY + Math.sin(a) * o.radius;
+          const p2x = o.x + Math.cos(a + Math.PI) * o.radius, p2y = o.pivotY + Math.sin(a + Math.PI) * o.radius;
+          bladeDist = Math.min(bladeDist, pointSegDist(player.x, player.y, p1x, p1y, p2x, p2y));
+        }
+        const hubDist = Math.hypot(player.x - o.x, player.y - o.pivotY);
+        const hits = bladeDist < hitR + o.thickness * 0.42 || hubDist < hitR + o.thickness * 1.03;
+        if (hits) {
+          if (rocketActive) {
+            spawnShards(o.x, o.pivotY, currentPalette.spinner, 11, o.radius * 0.8);
+            obstacles.splice(i, 1);
+            if (!o.passed) { score++; scoreLiveEl.textContent = score + '/' + lvl.target; if (score >= lvl.target) { levelComplete = true; break; } }
+            continue;
+          } else if (!shielded) { dead = true; break; }
+        }
+        if (!o.passed && o.x + o.radius < player.x - hitR) { o.passed = true; score++; scoreLiveEl.textContent = score + '/' + lvl.target; if (score >= lvl.target) { levelComplete = true; break; } }
+        if (o.x + o.radius < -60) obstacles.splice(i, 1);
+      } else if (o.type === 'orb') {
+        o.y += o.vy * dt;
+        o.spin += dt * 3;
+        if (o.y - o.r < 0 || o.y + o.r > H) { o.vy *= -1; o.y = Math.max(o.r, Math.min(H - o.r, o.y)); }
+        const dist = Math.hypot(player.x - o.x, player.y - o.y);
+        const hits = dist < hitR + o.r * 0.7;
+        if (hits) {
+          if (rocketActive) {
+            spawnShards(o.x, o.y, currentPalette.orb, 10, o.r);
+            obstacles.splice(i, 1);
+            if (!o.passed) { score++; scoreLiveEl.textContent = score + '/' + lvl.target; if (score >= lvl.target) { levelComplete = true; break; } }
+            continue;
+          } else if (!shielded) { dead = true; break; }
+        }
+        if (!o.passed && o.x + o.r < player.x - hitR) { o.passed = true; score++; scoreLiveEl.textContent = score + '/' + lvl.target; if (score >= lvl.target) { levelComplete = true; break; } }
+        if (o.x + o.r < -60) obstacles.splice(i, 1);
+      }
+    }
+
+    if (dead) {
+      spawnParticles(player.x, player.y, currentPalette.gate, '#ff3b5c');
+      endGame();
+      return;
+    }
+    if (levelComplete) {
+      spawnParticles(player.x, player.y, '#6ef2a0', currentPalette.gate);
+      completeLevel();
+      return;
+    }
+
+    for (let i = gems.length - 1; i >= 0; i--) {
+      const g = gems[i];
+      g.x -= g.speed * worldSpeedMul * dt;
+      const dist = Math.hypot(player.x - g.x, player.y - g.y);
+      if (dist < hitR + g.r * 0.75) {
+        gems.splice(i, 1);
+        if (g.rocket) {
+          player.rocketTimer = ROCKET_DURATION;
+          SoundFX.rocket();
+          coins += 2; sessionCoins += 2; lifetimeGems += 2;
+          lifetimeRockets += 1;
+          saveVal(KEYS.lifetimeRockets, lifetimeRockets);
+          spawnParticles(g.x, g.y, '#a76bff', '#42e7ff');
+        } else if (g.overcharge) {
+          player.pulse = getPulseMax();
+          player.shieldTimer = SHIELD_DURATION;
+          coins += 3; sessionCoins += 3; lifetimeGems += 3;
+          spawnParticles(g.x, g.y, '#a76bff', '#42e7ff');
+        } else {
+          coins++; sessionCoins++; lifetimeGems += 1;
+          player.pulse = Math.min(getPulseMax(), player.pulse + PULSE_GEM_REFILL);
+          spawnParticles(g.x, g.y, '#a76bff', '#42e7ff');
+        }
+        coinLiveEl.textContent = coins;
+        saveVal(KEYS.coins, coins);
+        saveVal(KEYS.lifetimeGems, lifetimeGems);
+        updateMissionsBadge();
+        continue;
+      }
+      if (g.x < -30) gems.splice(i, 1);
+    }
+
+    for (let i = pulseRings.length - 1; i >= 0; i--) {
+      const pr = pulseRings[i];
+      pr.life -= dt * 2.2;
+      if (pr.life <= 0) pulseRings.splice(i, 1);
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.life -= dt * 1.6;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    for (let i = shards.length - 1; i >= 0; i--) {
+      const s = shards[i];
+      s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 420 * dt; s.rot += s.vrot * dt; s.life -= dt * 0.9;
+      if (s.life <= 0 || s.y > H + 40) shards.splice(i, 1);
+    }
+
+    drawBackground();
+    if (player.rocketTimer > 0) drawWindLines(ctx, gTime);
+    for (let i = 0; i < obstacles.length; i++) {
+      const o = obstacles[i];
+      if (o.type === 'gate') drawGate(ctx, o, currentPalette);
+      else if (o.type === 'spinner') drawSpinner(ctx, o, currentPalette);
+      else drawOrb(ctx, o, currentPalette);
+    }
+    for (let i = 0; i < gems.length; i++) {
+      const g = gems[i];
+      if (g.rocket) drawRocketPickup(ctx, g.x, g.y, g.r, gTime);
+      else if (g.overcharge) drawOverchargeGem(ctx, g.x, g.y, g.r, gTime);
+      else drawGem(ctx, g.x, g.y, g.r, gTime, currentPalette.gemShape);
+    }
+    for (let i = 0; i < shards.length; i++) {
+      const s = shards[i];
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, s.life);
+      ctx.translate(s.x, s.y); ctx.rotate(s.rot);
+      ctx.fillStyle = s.color;
+      ctx.fillRect(-s.w / 2, -s.h / 2, s.w, s.h);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < pulseRings.length; i++) {
+      const pr = pulseRings[i];
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, pr.life) * 0.5;
+      ctx.strokeStyle = pr.strength > 0.85 ? '#fff' : currentPalette.accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r + (1 - pr.life) * 34, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    if (player.shieldTimer > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.5 + Math.sin(gTime * 8) * 0.15;
+      ctx.strokeStyle = '#fff6c9';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = 'rgba(255,246,201,0.8)'; ctx.shadowBlur = 16;
+      ctx.beginPath(); ctx.arc(player.x, player.y, player.r * 1.35, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    if (player.rocketTimer > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.55 + Math.sin(gTime * 14) * 0.2;
+      ctx.strokeStyle = '#b477ff';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(154,85,255,0.95)'; ctx.shadowBlur = 20;
+      ctx.beginPath(); ctx.arc(player.x, player.y, player.r * 1.55, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      // Bright, continuous exhaust sparks behind the visible rocket.
+      if (particles.length < 90 && Math.random() < 0.32) {
+        particles.push({ x: player.x - player.r * rand(0.9, 1.5), y: player.y + rand(-player.r * 0.45, player.r * 0.45), vx: rand(90, 190), vy: rand(-40, 40), life: rand(0.24, 0.42), color: Math.random() < 0.5 ? '#a76bff' : '#42e7ff' });
+      }
+    }
+    if (player.rocketTimer > 0) drawRocketVehicle(ctx, player.x, player.y, player.r * 1.45, gTime);
+    drawCharacter(ctx, player.skin, player.x, player.y, player.r, gTime);
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = Math.max(p.life, 0); ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    drawPulseMeter(ctx, player.pulse);
+    if (player.rocketTimer > 0) {
+      drawRocketMeter(ctx, player.rocketTimer);
+      if (player.rocketTimer <= 3.05) drawRocketCountdown(ctx, player.rocketTimer, gTime);
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  function flashScreen(color) {
+    flashEl.style.transition = 'none';
+    flashEl.style.background = color || '#ff3b5c';
+    flashEl.style.opacity = '0.55';
+    requestAnimationFrame(function () {
+      flashEl.style.transition = 'opacity 0.4s ease'; flashEl.style.opacity = '0';
+    });
+  }
+
+  function hideAllOverlays() {
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    levelCompleteScreen.classList.add('hidden');
+    levelSelectScreen.classList.add('hidden');
+    shopScreen.classList.add('hidden');
+    missionsScreen.classList.add('hidden');
+  }
+
+  function endGame() {
+    running = false;
+    flashScreen('#ff3b5c');
+    SoundFX.lose();
+    if (navigator.vibrate) { try { navigator.vibrate(80); } catch (e) {} }
+    const lvl = getLevel(currentLevelIndex);
+    finalScoreEl.textContent = score + '/' + lvl.target;
+    finalBestEl.textContent = unlockedLevel;
+    finalLevelEl.textContent = currentLevelIndex;
+    finalCoinsEl.textContent = sessionCoins;
+    coinStartEl.textContent = coins;
+    setTimeout(function () { gameOverScreen.classList.remove('hidden'); }, 260);
+  }
+
+  function completeLevel() {
+    running = false;
+    flashScreen('#3dffa3');
+    SoundFX.levelUp();
+    if (navigator.vibrate) { try { navigator.vibrate([40, 40, 60]); } catch (e) {} }
+    const lvl = getLevel(currentLevelIndex);
+    let newlyUnlockedSkin = null;
+    if (currentLevelIndex === unlockedLevel && unlockedLevel < TOTAL_LEVELS) {
+      unlockedLevel = unlockedLevel + 1;
+      saveVal(KEYS.unlockedLevel, String(unlockedLevel));
+    }
+    lifetimeCompletions += 1;
+    saveVal(KEYS.lifetimeCompletions, lifetimeCompletions);
+    updateMissionsBadge();
+    // mission-exclusive skins unlock the moment you've actually cleared their milestone level
+    for (let i = 0; i < MISSION_SKINS.length; i++) {
+      const ms = MISSION_SKINS[i];
+      if (currentLevelIndex >= ms.unlockLevel && unlockedSkins.indexOf(ms.id) === -1) {
+        unlockedSkins.push(ms.id);
+        saveVal(KEYS.skins, unlockedSkins);
+        newlyUnlockedSkin = ms;
+      }
+    }
+    bestLiveEl.textContent = unlockedLevel;
+    coinStartEl.textContent = coins;
+    completeLevelNameEl.textContent = 'Level ' + lvl.index + ' — ' + lvl.name;
+    completeScoreEl.textContent = score + '/' + lvl.target;
+    completeCoinsEl.textContent = sessionCoins;
+    if (newlyUnlockedSkin) {
+      const pctx = skinUnlockPreview.getContext('2d');
+      pctx.clearRect(0, 0, 40, 40);
+      drawCharacter(pctx, newlyUnlockedSkin.id, 20, 20, 13, gTime);
+      skinUnlockNameEl.textContent = newlyUnlockedSkin.name;
+      skinUnlockBanner.classList.remove('hidden');
+    } else {
+      skinUnlockBanner.classList.add('hidden');
+    }
+    const hasNext = currentLevelIndex < TOTAL_LEVELS;
+    nextLevelBtn.classList.toggle('hidden', !hasNext);
+    setTimeout(function () { levelCompleteScreen.classList.remove('hidden'); }, 260);
+  }
+
+  function startGame(levelIndex) {
+    hideAllOverlays();
+    resize();
+    initGame(levelIndex);
+    running = true;
+    requestAnimationFrame(loop);
+  }
+
+  function goToMenu() {
+    running = false;
+    hideAllOverlays();
+    updateStartPreview();
+    startScreen.classList.remove('hidden');
+  }
+
+  function renderLevelSelect() {
+    levelSelectGrid.innerHTML = '';
+    LEVELS.forEach(function (lvl) {
+      const unlocked = lvl.index <= unlockedLevel;
+      const div = document.createElement('div');
+      div.className = 'shop-item' + (!unlocked ? ' locked' : '');
+      const cvs = document.createElement('canvas');
+      cvs.width = 48; cvs.height = 48;
+      const cctx = cvs.getContext('2d');
+      const g = cctx.createLinearGradient(0, 0, 0, 48);
+      g.addColorStop(0, lvl.palette.bg[0]); g.addColorStop(1, lvl.palette.bg[1]);
+      cctx.fillStyle = g; cctx.fillRect(0, 0, 48, 48);
+      const planet=PLANET_SCENES[(lvl.index-1)%PLANET_SCENES.length];
+      const previewSky=cctx.createLinearGradient(0,0,48,48);previewSky.addColorStop(0,planet.sky);previewSky.addColorStop(1,planet.deep||planet.surface);cctx.fillStyle=previewSky;cctx.fillRect(0,0,48,48);
+      const orbR=planet.kind==='singularity'?15:18;const orbX=12+(lvl.index*11)%26;const orbY=10+(lvl.index*7)%15;const pg=cctx.createRadialGradient(orbX-orbR*.35,orbY-orbR*.4,1,orbX,orbY,orbR);pg.addColorStop(0,planet.light);pg.addColorStop(.65,planet.surface);pg.addColorStop(1,planet.deep||planet.sky);cctx.globalAlpha=.8;cctx.fillStyle=pg;cctx.beginPath();cctx.arc(orbX,orbY,orbR,0,Math.PI*2);cctx.fill();cctx.globalAlpha=.5;cctx.strokeStyle=planet.light;cctx.lineWidth=1.5;cctx.beginPath();cctx.ellipse(orbX,orbY,orbR*1.45,orbR*.38,-.25,0,Math.PI*2);cctx.stroke();cctx.globalAlpha=1;
+      cctx.fillStyle=planet.surface;cctx.beginPath();cctx.moveTo(0,34);cctx.quadraticCurveTo(13,28,25,34);cctx.quadraticCurveTo(37,40,48,32);cctx.lineTo(48,48);cctx.lineTo(0,48);cctx.closePath();cctx.fill();cctx.strokeStyle=planet.light;cctx.globalAlpha=.7;cctx.beginPath();cctx.moveTo(0,34);cctx.quadraticCurveTo(13,28,25,34);cctx.quadraticCurveTo(37,40,48,32);cctx.stroke();cctx.globalAlpha=1;
+      cctx.fillStyle = lvl.palette.gate;
+      cctx.fillRect(19, 0, 9, 15);
+      cctx.fillRect(19, 30, 9, 18);
+      cctx.fillStyle = lvl.palette.orb;
+      cctx.beginPath(); cctx.arc(36, 12, 4, 0, Math.PI * 2); cctx.fill();
+      div.appendChild(cvs);
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'name'; nameDiv.textContent = lvl.index + '. ' + PLANET_SCENES[(lvl.index-1)%PLANET_SCENES.length].name;
+      div.appendChild(nameDiv);
+      const statusDiv = document.createElement('div');
+      statusDiv.className = 'status';
+      statusDiv.style.color = '#9ba0c4';
+      statusDiv.textContent = unlocked ? 'Target ' + lvl.target : 'Locked';
+      div.appendChild(statusDiv);
+      div.addEventListener('click', function () {
+        if (unlocked) startGame(lvl.index);
+        else bounce(div);
+      });
+      levelSelectGrid.appendChild(div);
+    });
+  }
+
+  function showLevelSelect() {
+    renderLevelSelect();
+    hideAllOverlays();
+    levelSelectScreen.classList.remove('hidden');
+  }
+
+  startBtn.addEventListener('click', function () { startGame(unlockedLevel); });
+  restartBtn.addEventListener('click', function () { startGame(currentLevelIndex); });
+  menuBtnEnd.addEventListener('click', goToMenu);
+  menuBtnComplete.addEventListener('click', goToMenu);
+  nextLevelBtn.addEventListener('click', function () { startGame(Math.min(TOTAL_LEVELS, currentLevelIndex + 1)); });
+  levelsBtnStart.addEventListener('click', showLevelSelect);
+  levelSelectFromComplete.addEventListener('click', showLevelSelect);
+  closeLevelSelectBtn.addEventListener('click', function () {
+    levelSelectScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+  });
+
+  resize();
+  currentPalette = getLevel(1).palette;
+  updateStartPreview();
+  ctx.clearRect(0, 0, W, H);
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, currentPalette.bg[0]); grad.addColorStop(1, currentPalette.bg[1]);
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+})();
+</script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () { /* offline install just skipped, game still works */ });
+    });
+  }
+</script>
+</body>
+</html>
